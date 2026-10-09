@@ -1458,49 +1458,29 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             </svg>
             Nuvem (Google Firebase)
           </span>
-          <span id="badge-cloud-status" style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Desconectado</span>
+          <span id="badge-cloud-status" style="font-size: 11px; color: var(--color-green); font-weight: 600;">Conectado</span>
         </summary>
         <div class="collapsible-body">
+          <!-- Aviso de Conexão Automática -->
+          <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.22); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: #93c5fd; line-height: 1.5; margin-bottom: 12px;">
+            Conectado automaticamente — seus dados ficam salvos na nuvem do Google e aparecem iguais em qualquer aparelho.
+          </div>
+
           <!-- Indicador de Status da Nuvem em Tempo Real -->
           <div id="cloud-status-indicator" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 14px; font-size: 12px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span id="cloud-status-dot" class="metric-dot" style="background: var(--text-dim);"></span>
-              <span id="cloud-status-text" style="color: var(--text-muted); font-weight: 500;">Nuvem desconectada — dados salvos apenas neste aparelho</span>
+              <span id="cloud-status-dot" class="metric-dot green"></span>
+              <span id="cloud-status-text" style="color: var(--color-green); font-weight: 500;">Nuvem conectada — tudo salvo automaticamente</span>
             </div>
-            <span id="cloud-sync-meta" style="font-size: 11px; color: var(--text-dim); font-weight: 500;">Opcional</span>
+            <span id="cloud-sync-meta" style="font-size: 11px; color: var(--text-dim); font-weight: 500;">Em tempo real</span>
           </div>
 
-          <!-- Bloco quando DESCONECTADO -->
-          <div id="box-cloud-disconnected">
-            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5;">
-              Cole a configuração (<strong>firebaseConfig</strong>) do seu projeto gratuito no Firebase para sincronizar automaticamente seus dados em tempo real entre celular, computador e tablet.
-            </p>
-
-            <div style="margin-bottom: 10px;">
-              <label class="form-label" for="inp-cloud-config">Configuração do Firebase (objeto ou campos)</label>
-              <textarea id="inp-cloud-config" class="clean-input" style="width: 100%; height: 110px; font-family: monospace; font-size: 11px; box-sizing: border-box;" placeholder='const firebaseConfig = {&#10;  apiKey: "AIzaSy...",&#10;  authDomain: "meu-projeto.firebaseapp.com",&#10;  databaseURL: "https://meu-projeto-default-rtdb.firebaseio.com",&#10;  projectId: "meu-projeto",&#10;  ...&#10;};'></textarea>
-            </div>
-
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
-              <button id="btn-cloud-connect" class="clean-btn primary sm" type="button" style="font-weight: 600;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 12h14"></path>
-                  <path d="m12 5 7 7-7 7"></path>
-                </svg>
-                Conectar à nuvem
-              </button>
-              <button id="btn-cloud-paste-cb" class="clean-btn sm" type="button" style="color: var(--text-muted);">
-                Colar da área de transferência
-              </button>
-            </div>
-          </div>
-
-          <!-- Bloco quando CONECTADO -->
-          <div id="box-cloud-connected" style="display: none;">
+          <!-- Bloco Conectado (Padrão) -->
+          <div id="box-cloud-connected">
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; font-size: 12px; line-height: 1.6;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <span style="font-weight: 600; color: #ffffff;">Projeto Conectado</span>
-                <span id="cloud-info-project" style="color: var(--accent-text); font-weight: 600; font-family: monospace;">-</span>
+                <span id="cloud-info-project" style="color: var(--accent-text); font-weight: 600; font-family: monospace;">controle-picodep</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; color: var(--text-muted);">
                 <span>Chave de API:</span>
@@ -1508,7 +1488,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-muted);">
                 <span>Banco de Dados:</span>
-                <span id="cloud-info-db" style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: 11px;">-</span>
+                <span id="cloud-info-db" style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: 11px;">https://controle-picodep-default-rtdb.firebaseio.com</span>
               </div>
             </div>
 
@@ -1521,16 +1501,32 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
                 </svg>
                 Forçar sincronização agora
               </button>
-              <button id="btn-cloud-disconnect" class="clean-btn danger-ghost sm" type="button">
-                Desconectar da nuvem
-              </button>
             </div>
           </div>
 
-          <!-- Aviso de Multi-aparelho -->
-          <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.22); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 11.5px; color: #93c5fd; line-height: 1.45; margin-bottom: 10px;">
-            💡 <strong>Multi-aparelho:</strong> Use a MESMA configuração do Firebase em todos os aparelhos (celular, tablet e computador) para ver os mesmos dados sincronizados em tempo real.
-          </div>
+          <!-- Opções Avançadas Recolhíveis (para trocar de projeto se quiser) -->
+          <details style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; font-size: 12px;">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--text-muted); user-select: none;">
+              Opções avançadas (trocar de projeto Firebase)
+            </summary>
+            <div style="margin-top: 10px;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-muted); line-height: 1.45;">
+                O site já se conecta automaticamente ao projeto padrão. Se preferir usar outro projeto do Firebase, cole a configuração personalizada abaixo:
+              </p>
+              <div style="margin-bottom: 10px;">
+                <label class="form-label" for="inp-cloud-config">Nova configuração (firebaseConfig)</label>
+                <textarea id="inp-cloud-config" class="clean-input" style="width: 100%; height: 95px; font-family: monospace; font-size: 11px; box-sizing: border-box;" placeholder='const firebaseConfig = {&#10;  apiKey: "AIzaSy...",&#10;  projectId: "outro-projeto",&#10;  databaseURL: "https://outro-default-rtdb.firebaseio.com"&#10;};'></textarea>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button id="btn-cloud-connect" class="clean-btn primary sm" type="button" style="font-weight: 600;">
+                  Usar este projeto personalizado
+                </button>
+                <button id="btn-cloud-restore-default" class="clean-btn sm" type="button" style="color: var(--accent-text);">
+                  Restaurar projeto embutido padrão
+                </button>
+              </div>
+            </div>
+          </details>
 
           <!-- Tutorial de como criar Firebase Grátis -->
           <details style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px;">
@@ -1543,7 +1539,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
               <li>No menu lateral esquerdo, vá em <strong>Criação (Build) &rarr; Realtime Database</strong> &rarr; clique em <strong>Criar banco de dados</strong> e selecione <strong>"Iniciar no modo de teste"</strong> (permite leitura e escrita).</li>
               <li>No menu lateral, vá em <strong>Authentication</strong> &rarr; clique em Primeiros passos &rarr; aba <strong>Sign-in method</strong> &rarr; ative o provedor <strong>Anônimo</strong> e salve.</li>
               <li>Clique na engrenagem ⚙️ (Configurações do projeto no topo) &rarr; role até <strong>"Seus aplicativos"</strong> &rarr; ícone Web (<strong>&lt;/&gt;</strong>) &rarr; registre o app e copie o bloco <code>const firebaseConfig = { ... };</code>.</li>
-              <li>Cole o texto copiado no campo acima e clique em <strong>Conectar à nuvem</strong>. Pronto!</li>
+              <li>Cole o texto copiado nas opções avançadas e confirme.</li>
             </ol>
           </details>
         </div>
@@ -1567,12 +1563,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             Salve um backup de vez em quando e antes de trocar de celular ou limpar o navegador. O arquivo pode ser guardado no Google Drive ou onde preferir.
           </p>
 
-          <div style="margin-bottom: 10px;">
-            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; user-select: none;">
-              <input id="chk-backup-include-cloud" type="checkbox">
-              <span>Incluir configuração da nuvem no backup (desmarcado por segurança)</span>
-            </label>
-          </div>
+
 
           <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
             <button id="btn-make-backup" class="clean-btn sm" type="button" style="font-weight: 600;">
@@ -1984,6 +1975,17 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         SECTION_TIMESTAMPS: 'pd_sec_ts_v1'
       };
 
+      // --- CONFIGURAÇÃO EMBUTIDA DO FIREBASE ---
+      const DEFAULT_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAWUo_xjKAg6dkV5Rz1drajHvg7KW64_DE",
+        authDomain: "controle-picodep.firebaseapp.com",
+        databaseURL: "https://controle-picodep-default-rtdb.firebaseio.com",
+        projectId: "controle-picodep",
+        storageBucket: "controle-picodep.firebasestorage.app",
+        messagingSenderId: "566033735441",
+        appId: "1:566033735441:web:33fe339d65c1533b3c76b0"
+      };
+
       // --- DADOS INICIAIS MOCK ---
       const DEFAULT_SERVICES = [
         { id: 's1', name: 'Culto', value: 300 },
@@ -2083,8 +2085,8 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         filterEnt: 'all', // all | rec | pend
         activeModalDate: null, // Data aberta no modal de detalhes
         pendingBackupData: null, // Dados de backup aguardando confirmação do modal
-        firebaseConfig: null, // Objeto de configuração do Firebase
-        cloudStatus: 'disconnected', // 'disconnected' | 'connected' | 'syncing' | 'offline'
+        firebaseConfig: DEFAULT_FIREBASE_CONFIG, // Conectado por padrão com a config embutida
+        cloudStatus: 'syncing', // 'connected' | 'syncing' | 'offline'
         cloudPendingSync: false,
         sectionTimestamps: {} // { services: ts, days: ts, ... }
       };
@@ -2229,7 +2231,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           state.incomesStatus = incStat ? JSON.parse(incStat) : {};
 
           const fbc = localStorage.getItem(STORAGE.FB_CONFIG);
-          state.firebaseConfig = fbc ? JSON.parse(fbc) : null;
+          state.firebaseConfig = fbc ? JSON.parse(fbc) : DEFAULT_FIREBASE_CONFIG;
 
           const sts = localStorage.getItem(STORAGE.SECTION_TIMESTAMPS);
           state.sectionTimestamps = sts ? JSON.parse(sts) : {};
@@ -2318,40 +2320,32 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       }
 
       // --- EXPORTAÇÃO E IMPORTAÇÃO DE BACKUP ---
-      function generateBackupObject(includeCloud = false) {
-        const payloadData = {
-          services: state.services,
-          foodDefault: state.foodDefault,
-          icsUrl: state.icsUrl,
-          autoSync: state.autoSync,
-          onlyMatched: state.onlyMatched,
-          lastSyncTs: state.lastSyncTs,
-          lastSyncStatus: state.lastSyncStatus,
-          days: state.days,
-          expenses: state.expenses,
-          expensesStatus: state.expensesStatus,
-          incomes: state.incomes,
-          incomesStatus: state.incomesStatus
-        };
-
-        // Por segurança, NUNCA inclui a configuração do Firebase a menos que explicitamente solicitado
-        if (includeCloud && state.firebaseConfig) {
-          payloadData.firebaseConfig = state.firebaseConfig;
-        }
-
+      function generateBackupObject() {
+        // A configuração do Firebase já está embutida no código e não é incluída no backup
         return {
           version: 1,
           app: 'Controle de Trabalhos — PicoDrop',
           exportedAt: new Date().toISOString(),
-          data: payloadData
+          data: {
+            services: state.services,
+            foodDefault: state.foodDefault,
+            icsUrl: state.icsUrl,
+            autoSync: state.autoSync,
+            onlyMatched: state.onlyMatched,
+            lastSyncTs: state.lastSyncTs,
+            lastSyncStatus: state.lastSyncStatus,
+            days: state.days,
+            expenses: state.expenses,
+            expensesStatus: state.expensesStatus,
+            incomes: state.incomes,
+            incomesStatus: state.incomesStatus
+          }
         };
       }
 
       function downloadBackupFile() {
         try {
-          const chkCloud = document.getElementById('chk-backup-include-cloud');
-          const includeCloud = !!(chkCloud && chkCloud.checked);
-          const backupObj = generateBackupObject(includeCloud);
+          const backupObj = generateBackupObject();
           const jsonStr = JSON.stringify(backupObj, null, 2);
 
           const now = new Date();
@@ -2396,10 +2390,8 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           const boxManual = document.getElementById('box-manual-backup');
           const txtManual = document.getElementById('txt-backup-manual');
           if (boxManual && txtManual) {
-            const chkCloud = document.getElementById('chk-backup-include-cloud');
-            const includeCloud = !!(chkCloud && chkCloud.checked);
             boxManual.style.display = 'block';
-            txtManual.value = JSON.stringify(generateBackupObject(includeCloud), null, 2);
+            txtManual.value = JSON.stringify(generateBackupObject(), null, 2);
             showToast('Download bloqueado no navegador. Copie o texto abaixo.');
           } else {
             alert('Não foi possível gerar o arquivo de download diretamente. Utilize a opção de copiar texto.');
@@ -4714,19 +4706,15 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
         if (btnGenBackupTxt && txtBackupManual) {
           btnGenBackupTxt.addEventListener('click', () => {
-            const chkCloud = document.getElementById('chk-backup-include-cloud');
-            const includeCloud = !!(chkCloud && chkCloud.checked);
-            txtBackupManual.value = JSON.stringify(generateBackupObject(includeCloud), null, 2);
+            txtBackupManual.value = JSON.stringify(generateBackupObject(), null, 2);
             showToast('Texto do backup gerado.');
           });
         }
 
         if (btnCopyBackupTxt && txtBackupManual) {
           btnCopyBackupTxt.addEventListener('click', async () => {
-            const chkCloud = document.getElementById('chk-backup-include-cloud');
-            const includeCloud = !!(chkCloud && chkCloud.checked);
             if (!txtBackupManual.value.trim()) {
-              txtBackupManual.value = JSON.stringify(generateBackupObject(includeCloud), null, 2);
+              txtBackupManual.value = JSON.stringify(generateBackupObject(), null, 2);
             }
             try {
               if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -5118,65 +5106,54 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         const text = document.getElementById('cloud-status-text');
         const badge = document.getElementById('badge-cloud-status');
         const meta = document.getElementById('cloud-sync-meta');
-        const boxDisc = document.getElementById('box-cloud-disconnected');
-        const boxConn = document.getElementById('box-cloud-connected');
         const pIdEl = document.getElementById('cloud-info-project');
         const kEl = document.getElementById('cloud-info-apikey');
         const dbEl = document.getElementById('cloud-info-db');
 
         if (!dot || !text) return;
 
-        const isConn = !!state.firebaseConfig;
-
-        if (boxDisc && boxConn) {
-          boxDisc.style.display = isConn ? 'none' : 'block';
-          boxConn.style.display = isConn ? 'block' : 'none';
-        }
-
-        if (isConn && state.firebaseConfig) {
-          if (pIdEl) pIdEl.textContent = state.firebaseConfig.projectId || 'Firebase';
-          if (kEl) kEl.textContent = maskApiKey(state.firebaseConfig.apiKey);
-          if (dbEl) dbEl.textContent = state.firebaseConfig.databaseURL || '-';
-        }
+        const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+        if (pIdEl) pIdEl.textContent = cfg.projectId || 'controle-picodep';
+        if (kEl) kEl.textContent = '••••••••';
+        if (dbEl) dbEl.textContent = cfg.databaseURL || '-';
 
         // Classes do ponto
         dot.className = 'metric-dot';
 
-        if (!isConn) {
-          dot.style.background = 'var(--text-dim)';
-          dot.style.boxShadow = 'none';
-          text.textContent = 'Nuvem desconectada — dados salvos apenas neste aparelho';
-          text.style.color = 'var(--text-muted)';
-          if (badge) badge.textContent = 'Desconectado';
-          if (meta) meta.textContent = 'Opcional';
-          return;
-        }
-
-        if (badge) badge.textContent = 'Conectado';
-
         if (state.cloudStatus === 'syncing') {
           dot.classList.add('amber');
-          text.textContent = 'Sincronizando com a nuvem...';
+          text.textContent = 'Sincronizando...';
           text.style.color = 'var(--color-amber)';
+          if (badge) {
+            badge.textContent = 'Sincronizando...';
+            badge.style.color = 'var(--color-amber)';
+          }
           if (meta) meta.textContent = 'Enviando';
         } else if (state.cloudStatus === 'offline' || !navigator.onLine) {
           dot.classList.add('red');
-          text.textContent = 'Offline — dados salvos no aparelho, sincronizarei quando voltar';
+          text.textContent = 'Offline — sincronizarei quando voltar';
           text.style.color = 'var(--color-red)';
-          if (meta) meta.textContent = 'Fila pendente';
+          if (badge) {
+            badge.textContent = 'Offline';
+            badge.style.color = 'var(--color-red)';
+          }
+          if (meta) meta.textContent = 'Local';
         } else {
           // Conectado e ativo
           dot.classList.add('green');
           text.textContent = 'Nuvem conectada — tudo salvo automaticamente';
           text.style.color = 'var(--color-green)';
+          if (badge) {
+            badge.textContent = 'Conectado';
+            badge.style.color = 'var(--color-green)';
+          }
           if (meta) meta.textContent = 'Em tempo real';
         }
       }
 
       async function initFirebaseCloud(showInitialToast = false) {
         if (!state.firebaseConfig) {
-          updateCloudStatusUi();
-          return;
+          state.firebaseConfig = DEFAULT_FIREBASE_CONFIG;
         }
 
         try {
@@ -5185,30 +5162,34 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
           const firebase = await loadFirebaseSdk();
 
-          // Inicializa app com nome específico para isolamento
+          // Inicializa app isolado com a configuração embutida ou personalizada
           if (!fbAppInstance) {
             try {
-              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'PicoDropApp_' + Date.now());
+              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'PicoDropApp');
             } catch(initErr) {
-              fbAppInstance = firebase.app();
+              try {
+                fbAppInstance = firebase.app('PicoDropApp');
+              } catch(appErr) {
+                fbAppInstance = firebase.app();
+              }
             }
           }
 
-          // Autenticação anônima para identificação segura do cliente
+          // Autenticação anônima automática e tolerante
           const auth = fbAppInstance.auth();
           try {
             if (!auth.currentUser) {
               await auth.signInAnonymously();
             }
           } catch(authErr) {
-            console.warn('Auth anônimo opcional falhou:', authErr);
+            console.warn('Login anônimo opcional falhou:', authErr);
           }
 
-          // Inicializar Realtime Database
+          // Inicializar conexão com o Realtime Database
           const db = fbAppInstance.database();
           fbDatabaseRef = db.ref('picodrop_data');
 
-          // Ouvinte de conexão nativo do Firebase para detectar online/offline
+          // Ouvinte de conexão para alternar status online/offline com tolerância
           const connectedRef = db.ref('.info/connected');
           connectedRef.on('value', (snap) => {
             const isOnline = !!snap.val();
@@ -5223,33 +5204,33 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             updateCloudStatusUi();
           });
 
-          // Baixar estado atual da nuvem e realizar MESCLAGEM inicial
+          // Baixar estado atual da nuvem e realizar MESCLAGEM com localStorage
           const snapshot = await fbDatabaseRef.once('value');
           const cloudData = snapshot.val();
 
           if (cloudData && typeof cloudData === 'object') {
             mergeCloudData(cloudData);
           } else {
-            // Nuvem ainda vazia: subir os dados locais atuais imediatamente
+            // Nuvem ainda vazia: subir dados locais imediatamente
             await pushFullStateToCloud();
           }
 
-          // Ativar ouvinte de alterações remotas em tempo real
+          // Ativar ouvinte em tempo real para sincronização contínua
           setupCloudListener();
 
           state.cloudStatus = 'connected';
           updateCloudStatusUi();
 
           if (showInitialToast) {
-            showToast('Nuvem conectada — seus dados agora ficam salvos no Google e aparecem em qualquer aparelho');
+            showToast('Nuvem conectada — tudo salvo automaticamente');
           }
 
         } catch (err) {
-          console.warn('Falha ao conectar ao Firebase:', err);
+          console.warn('Falha na conexão com a nuvem (mantendo modo offline tolerante):', err);
           state.cloudStatus = 'offline';
           updateCloudStatusUi();
           if (showInitialToast) {
-            showToast('Não foi possível conectar à nuvem no momento. Seus dados continuam seguros no aparelho.');
+            showToast('Operando offline no momento. Seus dados continuam salvos neste aparelho.');
           }
         }
       }
@@ -5451,36 +5432,50 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
       function initCloudEventListeners() {
         const btnConnect = document.getElementById('btn-cloud-connect');
-        const btnDisconnect = document.getElementById('btn-cloud-disconnect');
+        const btnRestoreDefault = document.getElementById('btn-cloud-restore-default');
         const btnSyncForce = document.getElementById('btn-cloud-sync-force');
-        const btnPasteCb = document.getElementById('btn-cloud-paste-cb');
         const inpConfig = document.getElementById('inp-cloud-config');
 
         if (btnConnect && inpConfig) {
           btnConnect.addEventListener('click', async () => {
             const raw = inpConfig.value.trim();
             if (!raw) {
-              alert('Por favor, cole a configuração do Firebase (o código com apiKey, projectId, etc.).');
+              alert('Cole a configuração do projeto que deseja usar.');
               inpConfig.focus();
               return;
             }
 
             const parsed = parseFirebaseConfigText(raw);
             if (!parsed) {
-              alert('Não foi possível identificar as chaves do Firebase no texto colado. Certifique-se de colar o bloco com apiKey e projectId.');
+              alert('Não foi possível identificar a configuração no texto colado. Certifique-se de colar o bloco com apiKey e projectId.');
               return;
             }
 
+            // Desconectar app anterior se houver
+            try {
+              if (fbDatabaseRef && fbIsListening) fbDatabaseRef.off();
+            } catch(e){}
+            fbAppInstance = null;
+            fbIsListening = false;
+
             saveFirebaseConfigToStorage(parsed);
             await initFirebaseCloud(true);
+            inpConfig.value = '';
           });
         }
 
-        if (btnDisconnect) {
-          btnDisconnect.addEventListener('click', () => {
-            if (confirm('Deseja realmente desconectar da nuvem? Seus dados não serão apagados deste aparelho, mas as novas alterações não serão mais sincronizadas com outros dispositivos.')) {
-              disconnectFirebaseCloud();
-            }
+        if (btnRestoreDefault) {
+          btnRestoreDefault.addEventListener('click', async () => {
+            try {
+              if (fbDatabaseRef && fbIsListening) fbDatabaseRef.off();
+            } catch(e){}
+            fbAppInstance = null;
+            fbIsListening = false;
+
+            saveFirebaseConfigToStorage(null);
+            state.firebaseConfig = DEFAULT_FIREBASE_CONFIG;
+            await initFirebaseCloud(true);
+            showToast('Restaurado para o projeto embutido padrão');
           });
         }
 
@@ -5489,26 +5484,6 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             showToast('Sincronizando com a nuvem...');
             await pushFullStateToCloud();
             showToast('Tudo sincronizado com a nuvem!');
-          });
-        }
-
-        if (btnPasteCb && inpConfig) {
-          btnPasteCb.addEventListener('click', async () => {
-            try {
-              if (navigator.clipboard && navigator.clipboard.readText) {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                  inpConfig.value = text;
-                  showToast('Texto colado da área de transferência');
-                }
-              } else {
-                inpConfig.focus();
-                showToast('Cole o texto diretamente no campo.');
-              }
-            } catch(e) {
-              inpConfig.focus();
-              showToast('Permissão de colar negada. Use Ctrl+V ou colar manual.');
-            }
           });
         }
 
@@ -5547,13 +5522,13 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         // 5. Renderizar todas as telas
         try { renderAll(); } catch(err) { console.error('Erro renderAll:', err); }
 
-        // 5.1 Conectar e sincronizar com Firebase se configurado previamente
+        // 5.1 Conectar e sincronizar automaticamente à nuvem do Firebase
         try {
-          if (state.firebaseConfig) {
-            initFirebaseCloud(false);
-          }
+          initFirebaseCloud(false);
         } catch(err) {
           console.warn('Erro ao inicializar nuvem:', err);
+          state.cloudStatus = 'offline';
+          updateCloudStatusUi();
         }
 
         // 6. Auto-sincronização ao abrir se houver link salvo
