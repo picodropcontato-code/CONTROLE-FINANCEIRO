@@ -2639,9 +2639,393 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
     </main>
   </div>
 
-  <!-- Container de Toasts -->
-  <div id="toast-wrap" aria-live="polite"></div>
+      // =========================================================================
+      // --- AUTENTICAÇÃO 100% GOOGLE (FIREBASE AUTH) ---
+      // =========================================================================
 
+      function setGoogleButtonLoading(loading) {
+        const btn = document.getElementById('btn-google-login');
+        const txt = document.getElementById('btn-google-text');
+        const icon = document.getElementById('google-icon-svg');
+        if (!btn || !txt) return;
+        if (loading) {
+          btn.disabled = true;
+          if (icon) icon.style.display = 'none';
+          txt.innerHTML = '<span class="spinner" style="border-top-color:#1F1F1F; border-color:rgba(0,0,0,0.18); width:15px; height:15px;"></span> Conectando...';
+        } else {
+          btn.disabled = false;
+          if (icon) icon.style.display = 'inline-block';
+          txt.textContent = 'Entrar com Google';
+        }
+      }
+
+      function mapGoogleAuthError(err) {
+        if (location.protocol === 'file:') {
+          return 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        }
+        if (!err) return 'Não consegui completar o login. Tente novamente.';
+        const code = err.code || '';
+        if (code === 'auth/operation-not-supported-in-this-environment') {
+          return 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        }
+        if (code === 'auth/unauthorized-domain') {
+          return 'Domínio não autorizado no Firebase. No console, Authentication → Settings → Authorized domains, adicione: picodropcontato-code.github.io';
+        }
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          return 'Login cancelado.';
+        }
+        if (code === 'auth/network-request-failed') {
+          return 'Verifique sua internet.';
+        }
+        return err.message || 'Não consegui completar o login. Tente novamente.';
+      }
+
+      function showLoginNotice(msg, type = 'danger', showRetry = true) {
+        const errBox = document.getElementById('login-error');
+        const errTxt = document.getElementById('login-error-text');
+        const btnRetry = document.getElementById('btn-login-retry');
+        if (!errBox || !errTxt) return;
+        errTxt.textContent = msg || 'Não consegui completar o login. Tente novamente.';
+        errBox.classList.remove('warning', 'danger');
+        if (type === 'warning') {
+          errBox.classList.add('warning');
+        } else {
+          errBox.classList.add('danger');
+        }
+        errBox.classList.add('visible');
+
+        if (btnRetry) {
+          btnRetry.style.display = showRetry ? 'inline-flex' : 'none';
+        }
+      }
+
+      function hideLoginNotice() {
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.classList.remove('visible', 'warning', 'danger');
+        }
+      }
+
+      function dismissSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
+      }
+
+      function showLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (appRoot) appRoot.classList.remove('authenticated');
+
+        dismissSplashScreen();
+
+        if (loginScreen) {
+          loginScreen.style.display = 'flex';
+          requestAnimationFrame(() => {
+            loginScreen.style.opacity = '1';
+          });
+        }
+        setGoogleButtonLoading(false);
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) {
+          loginScreen.style.opacity = '0';
+          loginScreen.style.display = 'none';
+        }
+        if (appRoot) appRoot.classList.add('authenticated');
+
+        dismissSplashScreen();
+      }
+
+      function hideAppLayout() {
+        showLoginScreen();
+      }
+
+      let authSafetyTimer = null;
+      let authSessionChecked = false;
+      let isAuthProcessRunning = false;
+
+      function clearAuthSafetyTimer() {
+        if (authSafetyTimer) {
+          clearTimeout(authSafetyTimer);
+          authSafetyTimer = null;
+        }
+      }
+
+      function triggerSafetyFallback() {
+        if (authSessionChecked) return;
+        authSessionChecked = true;
+        isAuthProcessRunning = false;
+
+        showLoginScreen();
+
+        if (location.protocol === 'file:') {
+          showLoginNotice('Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.', 'warning', true);
+        } else {
+          showLoginNotice('Conecte-se à internet para entrar.', 'warning', true);
+        }
+      }
+
+      function initSplashListeners() {
+        const btnRetry = document.getElementById('btn-splash-retry');
+        const btnForceLogin = document.getElementById('btn-splash-force-login');
+
+        if (btnRetry) {
+          btnRetry.addEventListener('click', () => {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (timeoutBox) timeoutBox.style.display = 'none';
+            if (loadIndicator) loadIndicator.style.display = 'flex';
+
+            fbSdkLoadingPromise = null;
+            authSessionChecked = false;
+            initAuthService();
+          });
+        }
+
+        if (btnForceLogin) {
+          btnForceLogin.addEventListener('click', () => {
+            clearAuthSafetyTimer();
+            authSessionChecked = true;
+            showLoginScreen();
+          });
+        }
+      }
+
+      function showLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        const preview = document.getElementById('logout-user-email-preview');
+        if (preview && state.currentUser && state.currentUser.email) {
+          preview.textContent = `Conta atual: ${state.currentUser.email}`;
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      function closeLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function performLogout() {
+        try {
+          closeLogoutModal();
+          if (fbDatabaseRef && fbIsListening) {
+            try { fbDatabaseRef.off(); } catch(e){}
+            fbIsListening = false;
+          }
+          fbDatabaseRef = null;
+
+          const firebase = await loadFirebaseSdk();
+          const auth = fbAppInstance ? fbAppInstance.auth() : firebase.auth();
+          await auth.signOut();
+          state.currentUser = null;
+          updateUserDisplay(null);
+          hideAppLayout();
+          showToast('Você saiu da sua conta.');
+        } catch (err) {
+          console.error('Erro ao fazer logout:', err);
+          showToast('Erro ao sair da conta.');
+        }
+      }
+
+      async function initAuthService() {
+        if (isAuthProcessRunning) return;
+        isAuthProcessRunning = true;
+        authSessionChecked = false;
+
+        // REGRA 1: TIMEOUT DE SEGURANÇA MÁXIMO DE 6 SEGUNDOS
+        // NUNCA DEIXA O SPLASH TRAVADO: sai do splash imediatamente para a tela de login
+        clearAuthSafetyTimer();
+        authSafetyTimer = setTimeout(() => {
+          triggerSafetyFallback();
+        }, 6000);
+
+        try {
+          // Se for executado diretamente pelo sistema de arquivos local (file://),
+          // Google Auth não suporta origens locais
+          if (location.protocol === 'file:') {
+            // Se o usuário estiver offline ou com file://, interrompe carregamento do splash
+            setTimeout(() => {
+              if (!authSessionChecked) {
+                clearAuthSafetyTimer();
+                authSessionChecked = true;
+                isAuthProcessRunning = false;
+                showLoginScreen();
+                showLoginNotice('Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.', 'warning', true);
+              }
+            }, 800);
+          }
+
+          const firebase = await loadFirebaseSdk();
+
+          if (!fbAppInstance) {
+            try {
+              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
+            } catch(initErr) {
+              try {
+                fbAppInstance = firebase.app('ControleFinanceiroApp');
+              } catch(appErr) {
+                fbAppInstance = firebase.app();
+              }
+            }
+          }
+
+          const auth = fbAppInstance.auth();
+
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch(persErr) {
+            console.warn('Persistência local avisou:', persErr);
+          }
+
+          // Tratar retorno de redirecionamento se houver
+          try {
+            const redirectResult = await auth.getRedirectResult();
+            if (redirectResult && redirectResult.user) {
+              updateUserDisplay(redirectResult.user);
+            }
+          } catch(redirectErr) {
+            console.warn('getRedirectResult avisou:', redirectErr);
+            showLoginNotice(mapGoogleAuthError(redirectErr), 'danger', true);
+          }
+
+          // Ouvinte central de autenticação
+          auth.onAuthStateChanged((user) => {
+            clearAuthSafetyTimer();
+            authSessionChecked = true;
+            isAuthProcessRunning = false;
+
+            if (user) {
+              // Sessão ativa: transição suave para o app
+              hideLoginNotice();
+              updateUserDisplay(user);
+              showAppLayout();
+              initFirebaseDatabaseConnected(false);
+            } else {
+              // Sem sessão: mostrar tela de login
+              updateUserDisplay(null);
+              if (fbDatabaseRef && fbIsListening) {
+                try { fbDatabaseRef.off(); } catch(e){}
+                fbIsListening = false;
+              }
+              fbDatabaseRef = null;
+              showLoginScreen();
+
+              if (location.protocol === 'file:') {
+                showLoginNotice('Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.', 'warning', true);
+              }
+            }
+          });
+
+        } catch (err) {
+          console.warn('Falha na inicialização do Firebase Auth:', err);
+          clearAuthSafetyTimer();
+          triggerSafetyFallback();
+        }
+      }
+
+      function initAuthUiListeners() {
+        const btnGoogle = document.getElementById('btn-google-login');
+        const btnLoginRetry = document.getElementById('btn-login-retry');
+
+        if (btnGoogle) {
+          btnGoogle.addEventListener('click', async () => {
+            hideLoginNotice();
+
+            // REGRA 2: Tratamento de protocolo file://
+            if (location.protocol === 'file:') {
+              showLoginNotice('Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.', 'warning', true);
+              return;
+            }
+
+            setGoogleButtonLoading(true);
+
+            try {
+              const firebase = await loadFirebaseSdk();
+              if (!fbAppInstance) {
+                fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
+              }
+              const auth = fbAppInstance.auth();
+              const provider = new firebase.auth.GoogleAuthProvider();
+              provider.setCustomParameters({ prompt: 'select_account' });
+
+              try {
+                await auth.signInWithPopup(provider);
+              } catch(authErr) {
+                console.warn('signInWithPopup falhou:', authErr.code, authErr.message);
+                const code = authErr.code || '';
+
+                const shouldRedirect = (
+                  code === 'auth/popup-blocked' ||
+                  code === 'auth/operation-not-supported-in-this-environment' ||
+                  code === 'auth/internal-error' ||
+                  (/iphone|ipad|ipod|android/i.test(navigator.userAgent || '') && code !== 'auth/popup-closed-by-user' && code !== 'auth/unauthorized-domain')
+                );
+
+                if (shouldRedirect) {
+                  try {
+                    await auth.signInWithRedirect(provider);
+                    return;
+                  } catch(redirectErr) {
+                    setGoogleButtonLoading(false);
+                    const isWarn = redirectErr && (redirectErr.code === 'auth/operation-not-supported-in-this-environment' || redirectErr.code === 'auth/network-request-failed');
+                    showLoginNotice(mapGoogleAuthError(redirectErr), isWarn ? 'warning' : 'danger', true);
+                    return;
+                  }
+                }
+
+                setGoogleButtonLoading(false);
+                const isWarn = authErr && (authErr.code === 'auth/operation-not-supported-in-this-environment' || authErr.code === 'auth/network-request-failed');
+                showLoginNotice(mapGoogleAuthError(authErr), isWarn ? 'warning' : 'danger', true);
+              }
+            } catch(err) {
+              setGoogleButtonLoading(false);
+              showLoginNotice(mapGoogleAuthError(err), 'warning', true);
+            }
+          });
+        }
+
+        // REGRA 3: "Tentar novamente" disponível em todos os estados de falha
+        if (btnLoginRetry) {
+          btnLoginRetry.addEventListener('click', () => {
+            hideLoginNotice();
+            setGoogleButtonLoading(true);
+            fbSdkLoadingPromise = null;
+            authSessionChecked = false;
+            initAuthService().finally(() => {
+              setGoogleButtonLoading(false);
+            });
+          });
+        }
+
+        // Listeners dos botões de Logout
+        const btnSideLogout = document.getElementById('btn-sidebar-logout');
+        const btnMobLogout = document.getElementById('btn-mob-logout');
+        const btnCloudLogout = document.getElementById('btn-cloud-logout');
+        const btnDoLogout = document.getElementById('btn-do-logout');
+        const btnCancelLogout = document.getElementById('btn-cancel-logout');
+        const btnCloseLogoutModal = document.getElementById('btn-close-logout-modal');
+        const modalLogout = document.getElementById('modal-confirm-logout');
+
+        if (btnSideLogout) btnSideLogout.addEventListener('click', showLogoutModal);
+        if (btnMobLogout) btnMobLogout.addEventListener('click', showLogoutModal);
+        if (btnCloudLogout) btnCloudLogout.addEventListener('click', showLogoutModal);
+        if (btnDoLogout) btnDoLogout.addEventListener('click', performLogout);
+        if (btnCancelLogout) btnCancelLogout.addEventListener('click', closeLogoutModal);
+        if (btnCloseLogoutModal) btnCloseLogoutModal.addEventListener('click', closeLogoutModal);
 
       function setLoginButtonLoading(loading) {
         const btn = document.getElementById('btn-login-submit');
@@ -2896,6 +3280,314 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           }
 
           // Listeners dos botões de Logout
+=======
+      // =========================================================================
+      // --- AUTENTICAÇÃO 100% GOOGLE (FIREBASE AUTH) ---
+      // =========================================================================
+
+      function setGoogleButtonLoading(loading) {
+        const btn = document.getElementById('btn-google-login');
+        const txt = document.getElementById('btn-google-text');
+        const icon = document.getElementById('google-icon-svg');
+        if (!btn || !txt) return;
+        if (loading) {
+          btn.disabled = true;
+          if (icon) icon.style.display = 'none';
+          txt.innerHTML = '<span class="spinner" style="border-top-color:#1F1F1F; border-color:rgba(0,0,0,0.18); width:15px; height:15px;"></span> Conectando...';
+        } else {
+          btn.disabled = false;
+          if (icon) icon.style.display = 'inline-block';
+          txt.textContent = 'Entrar com Google';
+        }
+      }
+
+      function mapGoogleAuthError(err) {
+        if (!err) return 'Não consegui completar o login. Tente novamente.';
+        const code = err.code || '';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          return 'Login cancelado.';
+        }
+        if (code === 'auth/unauthorized-domain') {
+          return 'Domínio não autorizado no Firebase. No console, Authentication → Settings → Authorized domains, adicione: picodropcontato-code.github.io';
+        }
+        if (code === 'auth/network-request-failed') {
+          return 'Verifique sua internet.';
+        }
+        return 'Não consegui completar o login. Tente novamente.';
+      }
+
+      function showLoginError(msg) {
+        const errBox = document.getElementById('login-error');
+        const errTxt = document.getElementById('login-error-text');
+        if (!errBox || !errTxt) return;
+        errTxt.textContent = msg || 'Não consegui completar o login. Tente novamente.';
+        errBox.classList.add('visible');
+      }
+
+      function hideLoginError() {
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.classList.remove('visible');
+        }
+      }
+
+      function dismissSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
+      }
+
+      function showLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (appRoot) appRoot.classList.remove('authenticated');
+
+        dismissSplashScreen();
+
+        if (loginScreen) {
+          loginScreen.style.display = 'flex';
+          requestAnimationFrame(() => {
+            loginScreen.style.opacity = '1';
+          });
+        }
+        setGoogleButtonLoading(false);
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) {
+          loginScreen.style.opacity = '0';
+          loginScreen.style.display = 'none';
+        }
+        if (appRoot) appRoot.classList.add('authenticated');
+
+        dismissSplashScreen();
+      }
+
+      function hideAppLayout() {
+        showLoginScreen();
+      }
+
+      let authTimeoutTimer = null;
+      let authCheckCompleted = false;
+
+      function clearAuthTimeout() {
+        if (authTimeoutTimer) {
+          clearTimeout(authTimeoutTimer);
+          authTimeoutTimer = null;
+        }
+      }
+
+      function startAuthTimeout() {
+        clearAuthTimeout();
+        authTimeoutTimer = setTimeout(() => {
+          if (!authCheckCompleted) {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }, 8000);
+      }
+
+      function initSplashListeners() {
+        const btnRetry = document.getElementById('btn-splash-retry');
+        const btnForceLogin = document.getElementById('btn-splash-force-login');
+
+        if (btnRetry) {
+          btnRetry.addEventListener('click', () => {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (timeoutBox) timeoutBox.style.display = 'none';
+            if (loadIndicator) loadIndicator.style.display = 'flex';
+
+            authCheckCompleted = false;
+            startAuthTimeout();
+            initAuthService();
+          });
+        }
+
+        if (btnForceLogin) {
+          btnForceLogin.addEventListener('click', () => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+            showLoginScreen();
+          });
+        }
+      }
+
+      function showLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        const preview = document.getElementById('logout-user-email-preview');
+        if (preview && state.currentUser && state.currentUser.email) {
+          preview.textContent = `Conta atual: ${state.currentUser.email}`;
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      function closeLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function performLogout() {
+        try {
+          closeLogoutModal();
+          // Desconectar ouvinte do Realtime Database antes do logout
+          if (fbDatabaseRef && fbIsListening) {
+            try { fbDatabaseRef.off(); } catch(e){}
+            fbIsListening = false;
+          }
+          fbDatabaseRef = null;
+
+          const firebase = await loadFirebaseSdk();
+          const auth = fbAppInstance ? fbAppInstance.auth() : firebase.auth();
+          await auth.signOut();
+          state.currentUser = null;
+          updateUserDisplay(null);
+          hideAppLayout();
+          showToast('Você saiu da sua conta.');
+        } catch (err) {
+          console.error('Erro ao fazer logout:', err);
+          showToast('Erro ao sair da conta.');
+        }
+      }
+
+      async function initAuthService() {
+        startAuthTimeout();
+        try {
+          const firebase = await loadFirebaseSdk();
+
+          if (!fbAppInstance) {
+            try {
+              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
+            } catch(initErr) {
+              try {
+                fbAppInstance = firebase.app('ControleFinanceiroApp');
+              } catch(appErr) {
+                fbAppInstance = firebase.app();
+              }
+            }
+          }
+
+          const auth = fbAppInstance.auth();
+
+          // Persistência LOCAL padrão do Firebase — logado para sempre até clicar em Sair
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch(persErr) {
+            console.warn('Persistência local avisou:', persErr);
+          }
+
+          // Tratar resultado de redirecionamento (caso tenha ocorrido fallback signInWithRedirect)
+          try {
+            const redirectResult = await auth.getRedirectResult();
+            if (redirectResult && redirectResult.user) {
+              updateUserDisplay(redirectResult.user);
+            }
+          } catch(redirectErr) {
+            console.warn('getRedirectResult avisou:', redirectErr);
+            showLoginError(mapGoogleAuthError(redirectErr));
+          }
+
+          // Listener de estado de autenticação central
+          auth.onAuthStateChanged((user) => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+
+            if (user) {
+              // USUÁRIO AUTENTICADO: transição suave do splash direto para o app
+              updateUserDisplay(user);
+              showAppLayout();
+              // Iniciar conexão com o Realtime Database autenticado e sincronizar dados
+              initFirebaseDatabaseConnected(false);
+            } else {
+              // NENHUM USUÁRIO: transição suave do splash para login
+              updateUserDisplay(null);
+              // Desconectar o banco e ocultar o app
+              if (fbDatabaseRef && fbIsListening) {
+                try { fbDatabaseRef.off(); } catch(e){}
+                fbIsListening = false;
+              }
+              fbDatabaseRef = null;
+              showLoginScreen();
+            }
+          });
+
+          // Listener do botão Entrar com Google
+          const btnGoogle = document.getElementById('btn-google-login');
+          if (btnGoogle) {
+            btnGoogle.addEventListener('click', async () => {
+              hideLoginError();
+              setGoogleButtonLoading(true);
+
+              const provider = new firebase.auth.GoogleAuthProvider();
+              provider.setCustomParameters({ prompt: 'select_account' });
+
+              try {
+                // Tenta primeiramente signInWithPopup
+                await auth.signInWithPopup(provider);
+                // onAuthStateChanged cuidará da transição
+              } catch(authErr) {
+                console.warn('signInWithPopup falhou:', authErr.code, authErr.message);
+                const code = authErr.code || '';
+
+                // Fallback automático para signInWithRedirect caso o popup falhe ou seja bloqueado (móvel / bloqueador)
+                const shouldRedirect = (
+                  code === 'auth/popup-blocked' ||
+                  code === 'auth/operation-not-supported-in-this-environment' ||
+                  code === 'auth/internal-error' ||
+                  (/iphone|ipad|ipod|android/i.test(navigator.userAgent || '') && code !== 'auth/popup-closed-by-user' && code !== 'auth/unauthorized-domain')
+                );
+
+                if (shouldRedirect) {
+                  try {
+                    await auth.signInWithRedirect(provider);
+                    return;
+                  } catch(redirectErr) {
+                    setGoogleButtonLoading(false);
+                    showLoginError(mapGoogleAuthError(redirectErr));
+                    return;
+                  }
+                }
+
+                setGoogleButtonLoading(false);
+                showLoginError(mapGoogleAuthError(authErr));
+              }
+            });
+          }
+
+          // Listeners dos botões de Logout--- CHAVES DE LOCALSTORAGE ---
+      const STORAGE = {
+        SERVICES: 'pd_services_v1',
+=======
+      // --- CHAVES DE LOCALSTORAGE ---
+      const STORAGE = {
+        SERVICES: 'pd_services_v1',
+=======
+  <!-- SCRIPT PRINCIPAL -->
+  <script>
+    (function() {
+      'use strict';
+=======
+  <!-- Container de Toasts -->
+  <div id="toast-wrap" aria-live="polite"></div>
+
+  <!-- SCRIPT PRINCIPAL -->
+  <script>
+    (function() {
+      'use strict';
 =======
       // =========================================================================
       // --- AUTENTICAÇÃO 100% GOOGLE (FIREBASE AUTH) ---
@@ -4791,7 +5483,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           // Se o backup continha configuração da nuvem
           if (payload.firebaseConfig && typeof payload.firebaseConfig === 'object') {
             saveFirebaseConfigToStorage(payload.firebaseConfig);
-            initFirebaseCloud(false);
+            initFirebaseDatabaseConnected(false);
           }
 
           // Persistir tudo no localStorage
@@ -7783,8 +8475,606 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         }
       }
 
+
+      function setLoginButtonLoading(loading) {
+        const btn = document.getElementById('btn-login-submit');
+        const txt = document.getElementById('btn-login-text');
+        if (!btn || !txt) return;
+        if (loading) {
+          btn.disabled = true;
+          txt.innerHTML = '<span class="spinner"></span> Entrando...';
+        } else {
+          btn.disabled = false;
+          txt.textContent = 'Entrar';
+        }
+      }
+
+      function showLoginError(msg) {
+        const errBox = document.getElementById('login-error');
+        const errTxt = document.getElementById('login-error-text');
+        if (!errBox || !errTxt) return;
+        errTxt.textContent = msg || 'E-mail ou senha incorretos.';
+        errBox.classList.add('visible');
+      }
+
+      function hideLoginError() {
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.classList.remove('visible');
+        }
+      }
+
+      function dismissSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
+      }
+
+      function showLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (appRoot) appRoot.classList.remove('authenticated');
+
+        dismissSplashScreen();
+
+        if (loginScreen) {
+          loginScreen.style.display = 'flex';
+          requestAnimationFrame(() => {
+            loginScreen.style.opacity = '1';
+          });
+        }
+        const pwdInp = document.getElementById('login-password');
+        if (pwdInp) pwdInp.value = '';
+        hideLoginError();
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) {
+          loginScreen.style.opacity = '0';
+          loginScreen.style.display = 'none';
+        }
+        if (appRoot) appRoot.classList.add('authenticated');
+
+        dismissSplashScreen();
+      }
+
+      function hideAppLayout() {
+        showLoginScreen();
+      }
+
+      let authTimeoutTimer = null;
+      let authCheckCompleted = false;
+
+      function clearAuthTimeout() {
+        if (authTimeoutTimer) {
+          clearTimeout(authTimeoutTimer);
+          authTimeoutTimer = null;
+        }
+      }
+
+      function startAuthTimeout() {
+        clearAuthTimeout();
+        authTimeoutTimer = setTimeout(() => {
+          if (!authCheckCompleted) {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }, 8000);
+      }
+
+      function initSplashListeners() {
+        const btnRetry = document.getElementById('btn-splash-retry');
+        const btnForceLogin = document.getElementById('btn-splash-force-login');
+
+        if (btnRetry) {
+          btnRetry.addEventListener('click', () => {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (timeoutBox) timeoutBox.style.display = 'none';
+            if (loadIndicator) loadIndicator.style.display = 'flex';
+
+            authCheckCompleted = false;
+            startAuthTimeout();
+            initAuthService();
+          });
+        }
+
+        if (btnForceLogin) {
+          btnForceLogin.addEventListener('click', () => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+            showLoginScreen();
+          });
+        }
+      }
+
+      function showLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        const preview = document.getElementById('logout-user-email-preview');
+        if (preview && state.currentUser && state.currentUser.email) {
+          preview.textContent = `Conta atual: ${state.currentUser.email}`;
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      function closeLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function performLogout() {
+        try {
+          closeLogoutModal();
+          // Desconectar ouvinte do Realtime Database antes do logout
+          if (fbDatabaseRef && fbIsListening) {
+            try { fbDatabaseRef.off(); } catch(e){}
+            fbIsListening = false;
+          }
+          fbDatabaseRef = null;
+
+          const firebase = await loadFirebaseSdk();
+          const auth = fbAppInstance ? fbAppInstance.auth() : firebase.auth();
+          await auth.signOut();
+          state.currentUser = null;
+          updateUserDisplay(null);
+          hideAppLayout();
+          showToast('Você saiu da sua conta.');
+        } catch (err) {
+          console.error('Erro ao fazer logout:', err);
+          showToast('Erro ao sair da conta.');
+        }
+      }
+
+      async function initAuthService() {
+        startAuthTimeout();
+        try {
+          const firebase = await loadFirebaseSdk();
+
+          if (!fbAppInstance) {
+            try {
+              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
+            } catch(initErr) {
+              try {
+                fbAppInstance = firebase.app('ControleFinanceiroApp');
+              } catch(appErr) {
+                fbAppInstance = firebase.app();
+              }
+            }
+          }
+
+          const auth = fbAppInstance.auth();
+
+          // Persistência local padrão do Firebase (sessão permanente até o logout)
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch(persErr) {
+            console.warn('Persistência local avisou:', persErr);
+          }
+
+          // Listener de estado de autenticação central
+          auth.onAuthStateChanged((user) => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+
+            if (user) {
+              // USUÁRIO AUTENTICADO: transição suave do splash direto para o app
+              updateUserDisplay(user);
+              showAppLayout();
+              // Iniciar conexão com o Realtime Database autenticado e carregar dados
+              initFirebaseDatabaseConnected(false);
+            } else {
+              // NENHUM USUÁRIO: transição suave do splash para login
+              updateUserDisplay(null);
+              // Desconectar o banco e ocultar o app
+              if (fbDatabaseRef && fbIsListening) {
+                try { fbDatabaseRef.off(); } catch(e){}
+                fbIsListening = false;
+              }
+              fbDatabaseRef = null;
+              showLoginScreen();
+            }
+          });
+
+          // Listener do formulário de login
+          const loginForm = document.getElementById('login-form');
+          if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              hideLoginError();
+
+              const emailInp = document.getElementById('login-email');
+              const pwdInp = document.getElementById('login-password');
+              const email = emailInp ? emailInp.value.trim() : '';
+              const password = pwdInp ? pwdInp.value : '';
+
+              if (!email || !password) {
+                showLoginError('Por favor, informe seu e-mail e senha.');
+                return;
+              }
+
+              setLoginButtonLoading(true);
+
+              try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // O onAuthStateChanged tratará a transição e exibição do app
+                setLoginButtonLoading(false);
+              } catch (authErr) {
+                setLoginButtonLoading(false);
+                console.warn('Falha de autenticação:', authErr.code, authErr.message);
+
+                if (authErr.code === 'auth/network-request-failed') {
+                  showLoginError('Não consegui conectar. Verifique sua internet.');
+                } else if (authErr.code === 'auth/too-many-requests') {
+                  showLoginError('Muitas tentativas sem sucesso. Tente novamente em instantes.');
+                } else {
+                  // Credenciais inválidas (user-not-found, wrong-password, invalid-credential, invalid-email, etc)
+                  showLoginError('E-mail ou senha incorretos.');
+                }
+              }
+            });
+          }
+
+          // Listeners dos botões de Logout
+          const btnSideLogout = document.getElementById('btn-sidebar-logout');
+          const btnMobLogout = document.getElementById('btn-mob-logout');
+          const btnCloudLogout = document.getElementById('btn-cloud-logout');
+          const btnDoLogout = document.getElementById('btn-do-logout');
+          const btnCancelLogout = document.getElementById('btn-cancel-logout');
+          const btnCloseLogoutModal = document.getElementById('btn-close-logout-modal');
+          const modalLogout = document.getElementById('modal-confirm-logout');
+
+          if (btnSideLogout) btnSideLogout.addEventListener('click', showLogoutModal);
+          if (btnMobLogout) btnMobLogout.addEventListener('click', showLogoutModal);
+          if (btnCloudLogout) btnCloudLogout.addEventListener('click', showLogoutModal);
+          if (btnDoLogout) btnDoLogout.addEventListener('click', performLogout);
+          if (btnCancelLogout) btnCancelLogout.addEventListener('click', closeLogoutModal);
+          if (btnCloseLogoutModal) btnCloseLogoutModal.addEventListener('click', closeLogoutModal);
+          if (modalLogout) {
+            modalLogout.addEventListener('click', (e) => {
+              if (e.target === modalLogout) closeLogoutModal();
+            });
+          }
+
+        } catch (err) {
+          console.error('Erro ao inicializar Firebase Auth:', err);
+          if (!authCheckCompleted) {
+            clearAuthTimeout();
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }
+      }
+
+      async function initFirebaseDatabaseConnected(showInitialToast = false) {
+=======
+      function updateUserDisplay(user) {
+        state.currentUser = user;
+        const sideEmail = document.getElementById('side-user-email');
+        if (sideEmail) {
+          sideEmail.textContent = user && user.email ? user.email : '-';
+          sideEmail.title = user && user.email ? user.email : '';
+        }
+        updateCloudStatusUi();
+      }
+
+      async function initFirebaseDatabaseConnected(showInitialToast = false) {=========================================================================
       // --- AUTENTICAÇÃO REAL COM FIREBASE AUTH (E-MAIL E SENHA) ---
       // =========================================================================
+
+      function setLoginButtonLoading(loading) {
+        const btn = document.getElementById('btn-login-submit');
+        const txt = document.getElementById('btn-login-text');
+        if (!btn || !txt) return;
+        if (loading) {
+          btn.disabled = true;
+          txt.innerHTML = '<span class="spinner"></span> Entrando...';
+        } else {
+          btn.disabled = false;
+          txt.textContent = 'Entrar';
+        }
+      }
+
+      function showLoginError(msg) {
+        const errBox = document.getElementById('login-error');
+        const errTxt = document.getElementById('login-error-text');
+        if (!errBox || !errTxt) return;
+        errTxt.textContent = msg || 'E-mail ou senha incorretos.';
+        errBox.classList.add('visible');
+      }
+
+      function hideLoginError() {
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.classList.remove('visible');
+        }
+      }
+
+      function dismissSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
+      }
+
+      function showLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (appRoot) appRoot.classList.remove('authenticated');
+
+        dismissSplashScreen();
+
+        if (loginScreen) {
+          loginScreen.style.display = 'flex';
+          requestAnimationFrame(() => {
+            loginScreen.style.opacity = '1';
+          });
+        }
+        const pwdInp = document.getElementById('login-password');
+        if (pwdInp) pwdInp.value = '';
+        hideLoginError();
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) {
+          loginScreen.style.opacity = '0';
+          loginScreen.style.display = 'none';
+        }
+        if (appRoot) appRoot.classList.add('authenticated');
+
+        dismissSplashScreen();
+      }
+
+      function hideAppLayout() {
+        showLoginScreen();
+      }
+
+      let authTimeoutTimer = null;
+      let authCheckCompleted = false;
+
+      function clearAuthTimeout() {
+        if (authTimeoutTimer) {
+          clearTimeout(authTimeoutTimer);
+          authTimeoutTimer = null;
+        }
+      }
+
+      function startAuthTimeout() {
+        clearAuthTimeout();
+        authTimeoutTimer = setTimeout(() => {
+          if (!authCheckCompleted) {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }, 8000);
+      }
+
+      function initSplashListeners() {
+        const btnRetry = document.getElementById('btn-splash-retry');
+        const btnForceLogin = document.getElementById('btn-splash-force-login');
+
+        if (btnRetry) {
+          btnRetry.addEventListener('click', () => {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (timeoutBox) timeoutBox.style.display = 'none';
+            if (loadIndicator) loadIndicator.style.display = 'flex';
+
+            authCheckCompleted = false;
+            startAuthTimeout();
+            initAuthService();
+          });
+        }
+
+        if (btnForceLogin) {
+          btnForceLogin.addEventListener('click', () => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+            showLoginScreen();
+          });
+        }
+      }
+
+      function showLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        const preview = document.getElementById('logout-user-email-preview');
+        if (preview && state.currentUser && state.currentUser.email) {
+          preview.textContent = `Conta atual: ${state.currentUser.email}`;
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      function closeLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function performLogout() {
+        try {
+          closeLogoutModal();
+          // Desconectar ouvinte do Realtime Database antes do logout
+          if (fbDatabaseRef && fbIsListening) {
+            try { fbDatabaseRef.off(); } catch(e){}
+            fbIsListening = false;
+          }
+          fbDatabaseRef = null;
+
+          const firebase = await loadFirebaseSdk();
+          const auth = fbAppInstance ? fbAppInstance.auth() : firebase.auth();
+          await auth.signOut();
+          state.currentUser = null;
+          updateUserDisplay(null);
+          hideAppLayout();
+          showToast('Você saiu da sua conta.');
+        } catch (err) {
+          console.error('Erro ao fazer logout:', err);
+          showToast('Erro ao sair da conta.');
+        }
+      }
+
+      async function initAuthService() {
+        startAuthTimeout();
+        try {
+          const firebase = await loadFirebaseSdk();
+
+          if (!fbAppInstance) {
+            try {
+              fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
+            } catch(initErr) {
+              try {
+                fbAppInstance = firebase.app('ControleFinanceiroApp');
+              } catch(appErr) {
+                fbAppInstance = firebase.app();
+              }
+            }
+          }
+
+          const auth = fbAppInstance.auth();
+
+          // Persistência local padrão do Firebase (sessão permanente até o logout)
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch(persErr) {
+            console.warn('Persistência local avisou:', persErr);
+          }
+
+          // Listener de estado de autenticação central
+          auth.onAuthStateChanged((user) => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+
+            if (user) {
+              // USUÁRIO AUTENTICADO: transição suave do splash direto para o app
+              updateUserDisplay(user);
+              showAppLayout();
+              // Iniciar conexão com o Realtime Database autenticado e carregar dados
+              initFirebaseDatabaseConnected(false);
+            } else {
+              // NENHUM USUÁRIO: transição suave do splash para login
+              updateUserDisplay(null);
+              // Desconectar o banco e ocultar o app
+              if (fbDatabaseRef && fbIsListening) {
+                try { fbDatabaseRef.off(); } catch(e){}
+                fbIsListening = false;
+              }
+              fbDatabaseRef = null;
+              showLoginScreen();
+            }
+          });
+
+          // Listener do formulário de login
+          const loginForm = document.getElementById('login-form');
+          if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              hideLoginError();
+
+              const emailInp = document.getElementById('login-email');
+              const pwdInp = document.getElementById('login-password');
+              const email = emailInp ? emailInp.value.trim() : '';
+              const password = pwdInp ? pwdInp.value : '';
+
+              if (!email || !password) {
+                showLoginError('Por favor, informe seu e-mail e senha.');
+                return;
+              }
+
+              setLoginButtonLoading(true);
+
+              try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // O onAuthStateChanged tratará a transição e exibição do app
+                setLoginButtonLoading(false);
+              } catch (authErr) {
+                setLoginButtonLoading(false);
+                console.warn('Falha de autenticação:', authErr.code, authErr.message);
+
+                if (authErr.code === 'auth/network-request-failed') {
+                  showLoginError('Não consegui conectar. Verifique sua internet.');
+                } else if (authErr.code === 'auth/too-many-requests') {
+                  showLoginError('Muitas tentativas sem sucesso. Tente novamente em instantes.');
+                } else {
+                  // Credenciais inválidas (user-not-found, wrong-password, invalid-credential, invalid-email, etc)
+                  showLoginError('E-mail ou senha incorretos.');
+                }
+              }
+            });
+          }
+
+          // Listeners dos botões de Logout
+          const btnSideLogout = document.getElementById('btn-sidebar-logout');
+          const btnMobLogout = document.getElementById('btn-mob-logout');
+          const btnCloudLogout = document.getElementById('btn-cloud-logout');
+          const btnDoLogout = document.getElementById('btn-do-logout');
+          const btnCancelLogout = document.getElementById('btn-cancel-logout');
+          const btnCloseLogoutModal = document.getElementById('btn-close-logout-modal');
+          const modalLogout = document.getElementById('modal-confirm-logout');
+
+          if (btnSideLogout) btnSideLogout.addEventListener('click', showLogoutModal);
+          if (btnMobLogout) btnMobLogout.addEventListener('click', showLogoutModal);
+          if (btnCloudLogout) btnCloudLogout.addEventListener('click', showLogoutModal);
+          if (btnDoLogout) btnDoLogout.addEventListener('click', performLogout);
+          if (btnCancelLogout) btnCancelLogout.addEventListener('click', closeLogoutModal);
+          if (btnCloseLogoutModal) btnCloseLogoutModal.addEventListener('click', closeLogoutModal);
+          if (modalLogout) {
+            modalLogout.addEventListener('click', (e) => {
+              if (e.target === modalLogout) closeLogoutModal();
+            });
+          }
+
+        } catch (err) {
+          console.error('Erro ao inicializar Firebase Auth:', err);
+          if (!authCheckCompleted) {
+            clearAuthTimeout();
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }
+      }
+
+      async function initFirebaseDatabaseConnected(showInitialToast = false) {
+=======
+      function updateUserDisplay(user) {
+        state.currentUser = user;
+        const sideEmail = document.getElementById('side-user-email');
+        if (sideEmail) {
+          sideEmail.textContent = user && user.email ? user.email : '-';
+          sideEmail.title = user && user.email ? user.email : '';
+        }
+        updateCloudStatusUi();
+      }
+
+      async function initFirebaseDatabaseConnected(showInitialToast = false) {=========================================================================
 
       function setLoginButtonLoading(loading) {
         const btn = document.getElementById('btn-login-submit');
@@ -8659,7 +9949,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             fbIsListening = false;
 
             saveFirebaseConfigToStorage(parsed);
-            await initFirebaseCloud(true);
+            await initFirebaseDatabaseConnected(true);
             inpConfig.value = '';
           });
         }
@@ -8674,7 +9964,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
             saveFirebaseConfigToStorage(null);
             state.firebaseConfig = DEFAULT_FIREBASE_CONFIG;
-            await initFirebaseCloud(true);
+            await initFirebaseDatabaseConnected(true);
             showToast('Restaurado para o projeto embutido padrão');
           });
         }
@@ -8690,7 +9980,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         // Listener de rede para sincronizar automaticamente quando a internet voltar
         window.addEventListener('online', () => {
           if (state.firebaseConfig) {
-            initFirebaseCloud(false);
+            initFirebaseDatabaseConnected(false);
           }
         });
 
