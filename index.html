@@ -186,10 +186,116 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
     }
 
     /* Layout Geral com Sidebar Desktop e Mobile Bottom Nav */
-    .app-layout {
+    /* Tela de Login */
+    .login-container {
       display: flex;
+      align-items: center;
+      justify-content: center;
       min-height: 100vh;
       width: 100%;
+      background-color: var(--bg);
+      padding: 20px;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border-radius: var(--radius-xl);
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      animation: tabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .login-logo {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 14px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      background: #242424;
+    }
+
+    .login-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin: 0 0 6px 0;
+    }
+
+    .login-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .login-error-alert {
+      display: none;
+      background: rgba(168, 109, 103, 0.14);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: #E2938A;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1.45;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .login-error-alert.visible {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      animation: tabFadeIn 0.18s ease;
+    }
+
+    .login-btn-submit {
+      width: 100%;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--color-terracota);
+      color: #181818;
+      border-radius: var(--radius-pill);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+      margin-top: 12px;
+    }
+
+    .login-btn-submit:hover:not(:disabled) {
+      background: #d4a387;
+    }
+
+    .login-btn-submit:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .login-btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .app-layout {
+      display: none; /* Só visível quando autenticado */
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .app-layout.authenticated {
+      display: flex;
     }
 
     .app-sidebar {
@@ -1334,8 +1440,72 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
   </style>
 </head>
 <body>
+  <!-- ==================== TELA DE LOGIN REAL (FIREBASE AUTH) ==================== -->
+  <div id="login-screen" class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="46" height="46">
+            <rect width="64" height="64" rx="14" fill="#242424"/>
+            <path d="M43 21C39 16.5 32.5 15 26.5 18.5C18.5 23 17 35.5 23.5 43C29 49 38.5 48.5 43 43" fill="none" stroke="#C49275" stroke-width="6" stroke-linecap="round"/>
+            <line x1="26" y1="32" x2="38" y2="32" stroke="#7D9B86" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h1 class="login-title">Controle Financeiro</h1>
+        <p class="login-subtitle">Faça login para acessar suas finanças</p>
+      </div>
+
+      <div id="login-error" class="login-error-alert" role="alert" aria-live="assertive">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="login-error-text">E-mail ou senha incorretos.</span>
+      </div>
+
+      <form id="login-form" novalidate>
+        <div style="margin-bottom: 14px; text-align: left;">
+          <label class="form-label" for="login-email">E-mail</label>
+          <input id="login-email" type="email" class="clean-input" placeholder="seu@email.com" autocomplete="username" required style="width: 100%;">
+        </div>
+
+        <div style="margin-bottom: 20px; text-align: left;">
+          <label class="form-label" for="login-password">Senha</label>
+          <input id="login-password" type="password" class="clean-input" placeholder="••••••••" autocomplete="current-password" required style="width: 100%;">
+        </div>
+
+        <button id="btn-login-submit" type="submit" class="login-btn-submit">
+          <span id="btn-login-text">Entrar</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Estilizado de Confirmação de Logout -->
+  <div id="modal-confirm-logout" class="cal-modal-backdrop" aria-hidden="true" role="dialog">
+    <div class="cal-modal-card" style="max-width: 360px;">
+      <div class="cal-modal-header">
+        <div style="font-weight: 600; font-size: 14px; color: #ffffff;">Sair da Conta</div>
+        <button id="btn-close-logout-modal" class="clean-btn sm" type="button" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="cal-modal-body" style="gap: 10px; padding: 18px 22px;">
+        <p style="margin: 0; font-size: 13.5px; color: var(--text); line-height: 1.5;">
+          Deseja realmente sair da sua conta?
+        </p>
+        <div id="logout-user-email-preview" style="font-size: 12px; color: var(--text-muted);">
+          Você precisará digitar seu e-mail e senha novamente para acessar.
+        </div>
+      </div>
+      <div style="padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--surface); border-bottom-left-radius: var(--radius-xl); border-bottom-right-radius: var(--radius-xl);">
+        <button id="btn-cancel-logout" class="clean-btn sm" type="button">Cancelar</button>
+        <button id="btn-do-logout" class="clean-btn primary sm" type="button" style="background: var(--color-salmon); color: #ffffff;">Sair</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Layout Wrapper -->
-  <div class="app-layout">
+  <div id="app-root" class="app-layout">
 
     <!-- Sidebar Fixa Desktop (~240px) -->
     <aside class="app-sidebar" aria-label="Menu principal">
@@ -1399,9 +1569,18 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       </div>
 
       <div class="sidebar-footer">
-        <div class="sidebar-status-pill">
-          <span id="side-cloud-dot" class="metric-dot green"></span>
-          <span id="side-cloud-text">Nuvem ativa</span>
+        <div id="side-user-box" style="margin-bottom: 10px; padding: 0 4px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 3px;">Conectado como</div>
+          <div id="side-user-email" style="font-size: 12px; color: var(--text-muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">-</div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div class="sidebar-status-pill" style="flex: 1; min-width: 0;">
+            <span id="side-cloud-dot" class="metric-dot green"></span>
+            <span id="side-cloud-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Nuvem ativa</span>
+          </div>
+          <button id="btn-sidebar-logout" class="clean-btn sm danger-ghost" type="button" title="Sair da conta" style="padding: 6px 10px; font-size: 11.5px; flex-shrink: 0;">
+            Sair
+          </button>
         </div>
       </div>
     </aside>
@@ -1437,6 +1616,14 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           <polyline points="17 21 17 13 7 13 7 21"></polyline>
         </svg>
         <span>Backup</span>
+      </button>
+      <button id="btn-mob-logout" class="mob-nav-item" type="button" title="Sair da conta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+        <span>Sair</span>
       </button>
     </nav>
 
@@ -1683,15 +1870,15 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         <div class="fin-section-collapse">
           <div class="fin-section-body">
             <div id="cloud-status-indicator" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px; font-size: 12px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                 <span id="cloud-status-dot" class="metric-dot green"></span>
-                <span id="cloud-status-text" style="color: var(--color-green); font-weight: 500;">Nuvem conectada — dados sincronizados</span>
+                <span id="cloud-status-text" style="color: var(--color-green); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Nuvem conectada — dados sincronizados</span>
               </div>
-              <span id="cloud-sync-meta" style="font-size: 11px; color: var(--text-dim);">Em tempo real</span>
+              <span id="cloud-sync-meta" style="font-size: 11px; color: var(--text-dim); flex-shrink: 0;">Em tempo real</span>
             </div>
 
             <div id="box-cloud-connected">
-              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
                 <button id="btn-cloud-sync-force" class="clean-btn sm" type="button">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="23 4 23 10 17 10"></polyline>
@@ -1699,6 +1886,14 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                   </svg>
                   Forçar sincronização agora
+                </button>
+                <button id="btn-cloud-logout" class="clean-btn sm danger-ghost" type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  Sair desta conta
                 </button>
               </div>
             </div>
@@ -2452,7 +2647,8 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         firebaseConfig: DEFAULT_FIREBASE_CONFIG, // Conectado por padrão com a config embutida
         cloudStatus: 'syncing', // 'connected' | 'syncing' | 'offline'
         cloudPendingSync: false,
-        sectionTimestamps: {} // { services: ts, days: ts, ... }
+        sectionTimestamps: {}, // { services: ts, days: ts, ... }
+        currentUser: null // Usuário autenticado pelo Firebase Auth
       };
 
       // Identificador único do dispositivo local para evitar loop de sincronização
@@ -5806,6 +6002,9 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         // Classes do ponto
         dot.className = 'metric-dot';
 
+        const userEmail = (state.currentUser && state.currentUser.email) ? state.currentUser.email : '';
+        const connectedText = userEmail ? `Nuvem conectada como ${userEmail}` : 'Nuvem conectada — dados sincronizados';
+
         if (state.cloudStatus === 'syncing') {
           dot.classList.add('amber');
           text.textContent = 'Sincronizando...';
@@ -5831,7 +6030,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         } else {
           // Conectado e ativo
           dot.classList.add('green');
-          text.textContent = 'Nuvem conectada — tudo salvo automaticamente';
+          text.textContent = connectedText;
           text.style.color = 'var(--color-sage)';
           if (badge) {
             badge.textContent = 'Conectado';
@@ -5843,18 +6042,114 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         }
       }
 
-      async function initFirebaseCloud(showInitialToast = false) {
-        if (!state.firebaseConfig) {
-          state.firebaseConfig = DEFAULT_FIREBASE_CONFIG;
+      function updateUserDisplay(user) {
+        state.currentUser = user;
+        const sideEmail = document.getElementById('side-user-email');
+        if (sideEmail) {
+          sideEmail.textContent = user && user.email ? user.email : '-';
+          sideEmail.title = user && user.email ? user.email : '';
         }
+        updateCloudStatusUi();
+      }
 
+      // =========================================================================
+      // --- AUTENTICAÇÃO REAL COM FIREBASE AUTH (E-MAIL E SENHA) ---
+      // =========================================================================
+
+      function setLoginButtonLoading(loading) {
+        const btn = document.getElementById('btn-login-submit');
+        const txt = document.getElementById('btn-login-text');
+        if (!btn || !txt) return;
+        if (loading) {
+          btn.disabled = true;
+          txt.innerHTML = '<span class="spinner"></span> Entrando...';
+        } else {
+          btn.disabled = false;
+          txt.textContent = 'Entrar';
+        }
+      }
+
+      function showLoginError(msg) {
+        const errBox = document.getElementById('login-error');
+        const errTxt = document.getElementById('login-error-text');
+        if (!errBox || !errTxt) return;
+        errTxt.textContent = msg || 'E-mail ou senha incorretos.';
+        errBox.classList.add('visible');
+      }
+
+      function hideLoginError() {
+        const errBox = document.getElementById('login-error');
+        if (errBox) {
+          errBox.classList.remove('visible');
+        }
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appRoot) appRoot.classList.add('authenticated');
+      }
+
+      function hideAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (appRoot) appRoot.classList.remove('authenticated');
+        if (loginScreen) {
+          loginScreen.style.display = 'flex';
+        }
+        const pwdInp = document.getElementById('login-password');
+        if (pwdInp) pwdInp.value = '';
+        hideLoginError();
+      }
+
+      function showLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        const preview = document.getElementById('logout-user-email-preview');
+        if (preview && state.currentUser && state.currentUser.email) {
+          preview.textContent = `Conta atual: ${state.currentUser.email}`;
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      function closeLogoutModal() {
+        const modal = document.getElementById('modal-confirm-logout');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function performLogout() {
         try {
-          state.cloudStatus = 'syncing';
-          updateCloudStatusUi();
+          closeLogoutModal();
+          // Desconectar ouvinte do Realtime Database antes do logout
+          if (fbDatabaseRef && fbIsListening) {
+            try { fbDatabaseRef.off(); } catch(e){}
+            fbIsListening = false;
+          }
+          fbDatabaseRef = null;
 
           const firebase = await loadFirebaseSdk();
+          const auth = fbAppInstance ? fbAppInstance.auth() : firebase.auth();
+          await auth.signOut();
+          state.currentUser = null;
+          updateUserDisplay(null);
+          hideAppLayout();
+          showToast('Você saiu da sua conta.');
+        } catch (err) {
+          console.error('Erro ao fazer logout:', err);
+          showToast('Erro ao sair da conta.');
+        }
+      }
 
-          // Inicializa app isolado com a configuração embutida ou personalizada
+      async function initAuthService() {
+        try {
+          const firebase = await loadFirebaseSdk();
+
           if (!fbAppInstance) {
             try {
               fbAppInstance = firebase.initializeApp(state.firebaseConfig, 'ControleFinanceiroApp');
@@ -5867,21 +6162,115 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
             }
           }
 
-          // Autenticação anônima automática e tolerante
           const auth = fbAppInstance.auth();
+
+          // Persistência local padrão do Firebase (sessão permanente até o logout)
           try {
-            if (!auth.currentUser) {
-              await auth.signInAnonymously();
-            }
-          } catch(authErr) {
-            console.warn('Login anônimo opcional falhou:', authErr);
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch(persErr) {
+            console.warn('Persistência local avisou:', persErr);
           }
 
-          // Inicializar conexão com o Realtime Database
+          // Listener de estado de autenticação central
+          auth.onAuthStateChanged((user) => {
+            if (user) {
+              // USUÁRIO AUTENTICADO:
+              updateUserDisplay(user);
+              showAppLayout();
+              // Iniciar conexão com o Realtime Database autenticado e carregar dados
+              initFirebaseDatabaseConnected(false);
+            } else {
+              // NENHUM USUÁRIO:
+              updateUserDisplay(null);
+              // Desconectar o banco e ocultar o app
+              if (fbDatabaseRef && fbIsListening) {
+                try { fbDatabaseRef.off(); } catch(e){}
+                fbIsListening = false;
+              }
+              fbDatabaseRef = null;
+              hideAppLayout();
+            }
+          });
+
+          // Listener do formulário de login
+          const loginForm = document.getElementById('login-form');
+          if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              hideLoginError();
+
+              const emailInp = document.getElementById('login-email');
+              const pwdInp = document.getElementById('login-password');
+              const email = emailInp ? emailInp.value.trim() : '';
+              const password = pwdInp ? pwdInp.value : '';
+
+              if (!email || !password) {
+                showLoginError('Por favor, informe seu e-mail e senha.');
+                return;
+              }
+
+              setLoginButtonLoading(true);
+
+              try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // O onAuthStateChanged tratará a transição e exibição do app
+                setLoginButtonLoading(false);
+              } catch (authErr) {
+                setLoginButtonLoading(false);
+                console.warn('Falha de autenticação:', authErr.code, authErr.message);
+
+                if (authErr.code === 'auth/network-request-failed') {
+                  showLoginError('Não consegui conectar. Verifique sua internet.');
+                } else if (authErr.code === 'auth/too-many-requests') {
+                  showLoginError('Muitas tentativas sem sucesso. Tente novamente em instantes.');
+                } else {
+                  // Credenciais inválidas (user-not-found, wrong-password, invalid-credential, invalid-email, etc)
+                  showLoginError('E-mail ou senha incorretos.');
+                }
+              }
+            });
+          }
+
+          // Listeners dos botões de Logout
+          const btnSideLogout = document.getElementById('btn-sidebar-logout');
+          const btnMobLogout = document.getElementById('btn-mob-logout');
+          const btnCloudLogout = document.getElementById('btn-cloud-logout');
+          const btnDoLogout = document.getElementById('btn-do-logout');
+          const btnCancelLogout = document.getElementById('btn-cancel-logout');
+          const btnCloseLogoutModal = document.getElementById('btn-close-logout-modal');
+          const modalLogout = document.getElementById('modal-confirm-logout');
+
+          if (btnSideLogout) btnSideLogout.addEventListener('click', showLogoutModal);
+          if (btnMobLogout) btnMobLogout.addEventListener('click', showLogoutModal);
+          if (btnCloudLogout) btnCloudLogout.addEventListener('click', showLogoutModal);
+          if (btnDoLogout) btnDoLogout.addEventListener('click', performLogout);
+          if (btnCancelLogout) btnCancelLogout.addEventListener('click', closeLogoutModal);
+          if (btnCloseLogoutModal) btnCloseLogoutModal.addEventListener('click', closeLogoutModal);
+          if (modalLogout) {
+            modalLogout.addEventListener('click', (e) => {
+              if (e.target === modalLogout) closeLogoutModal();
+            });
+          }
+
+        } catch (err) {
+          console.error('Erro ao inicializar Firebase Auth:', err);
+          hideAppLayout();
+        }
+      }
+
+      async function initFirebaseDatabaseConnected(showInitialToast = false) {
+        // Só conecta ao Realtime Database se houver usuário autenticado
+        if (!state.currentUser) return;
+
+        try {
+          state.cloudStatus = 'syncing';
+          updateCloudStatusUi();
+
+          const firebase = await loadFirebaseSdk();
           const db = fbAppInstance.database();
           fbDatabaseRef = db.ref('picodrop_data');
 
-          // Ouvinte de conexão para alternar status online/offline com tolerância
+          // Ouvinte de conexão online/offline
           const connectedRef = db.ref('.info/connected');
           connectedRef.on('value', (snap) => {
             const isOnline = !!snap.val();
@@ -5918,12 +6307,9 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
           }
 
         } catch (err) {
-          console.warn('Falha na conexão com a nuvem (mantendo modo offline tolerante):', err);
+          console.warn('Falha na conexão com o banco de dados:', err);
           state.cloudStatus = 'offline';
           updateCloudStatusUi();
-          if (showInitialToast) {
-            showToast('Operando offline no momento. Seus dados continuam salvos neste aparelho.');
-          }
         }
       }
 
@@ -6061,7 +6447,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       }
 
       function scheduleCloudPush() {
-        if (!state.firebaseConfig || !fbDatabaseRef) return;
+        if (!state.currentUser || !state.firebaseConfig || !fbDatabaseRef) return;
 
         state.cloudPendingSync = true;
         state.cloudStatus = 'syncing';
@@ -6078,7 +6464,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       }
 
       async function pushFullStateToCloud() {
-        if (!state.firebaseConfig || !fbDatabaseRef) return;
+        if (!state.currentUser || !state.firebaseConfig || !fbDatabaseRef) return;
 
         try {
           const payload = {
@@ -6222,13 +6608,12 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         // 5. Renderizar todas as telas
         try { renderAll(); } catch(err) { console.error('Erro renderAll:', err); }
 
-        // 5.1 Conectar e sincronizar automaticamente à nuvem do Firebase
+        // 5.1 Inicializar autenticação real (que abrirá o app e conectará a nuvem após login)
         try {
-          initFirebaseCloud(false);
+          initAuthService();
         } catch(err) {
-          console.warn('Erro ao inicializar nuvem:', err);
-          state.cloudStatus = 'offline';
-          updateCloudStatusUi();
+          console.warn('Erro ao inicializar serviço de autenticação:', err);
+          hideAppLayout();
         }
 
         // 6. Auto-sincronização ao abrir se houver link salvo
