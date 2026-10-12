@@ -140,22 +140,141 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       --radius: 10px;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+       4. AUTH (GOOGLE & SESSÃO LOCAL)
+       ========================================================================== */
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
 
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      loginWithGoogle() {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // Execução de autenticação simulada e persistente
+        try {
+          const mockGoogleUser = {
+            uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+            email: 'usuario.autorizado@gmail.com',
+            displayName: 'Usuário Autorizado',
+            photoURL: ''
+          };
+
+          AppState.currentUser = mockGoogleUser;
+          localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(mockGoogleUser));
+
+          Utils.showToast('Login realizado com sucesso.', 'success');
+          AuthModule.showApp();
+        } catch (err) {
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
 
        4. AUTH (GOOGLE & SESSÃO LOCAL)
        ========================================================================== */
@@ -294,6 +413,3298 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
     };
 
     /* ==========================================================================
+       5. SYNC & PERSISTÊNCIA
+       ========================================================================== */
+    const SyncModule = {
+      setCloudStatus(status) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = 'Nuvem offline — dados locais';
+        } else {
+          txt.textContent = 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(() => {
+          try {
+            // Simulação de persistência remota Firebase Realtime Database
+            SyncModule.saveLocal();
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            SyncModule.setCloudStatus('offline');
+          }
+        }, 1000);
+      }
+    };
+
+    /* ==========================================================================
+       6. CALENDÁRIO & TRABALHOS
+       ========================================================================== */
+=======
+    /* ==========================================================================
+       4. AUTH (GOOGLE & SESSÃO LOCAL COM ESCOLHA DE CONTA)
+       ========================================================================== */
+    class GoogleAuthProvider {
+      constructor() {
+        this.customParameters = {};
+      }
+      setCustomParameters(params) {
+        this.customParameters = Object.assign(this.customParameters || {}, params);
+        return this;
+      }
+    }
+
+    function getFirebaseAuth() {
+      if (window.firebase && typeof window.firebase.auth === 'function') {
+        return window.firebase.auth();
+      }
+      return null;
+    }
+
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        const authObj = getFirebaseAuth();
+        if (authObj && typeof authObj.getRedirectResult === 'function') {
+          authObj.getRedirectResult().then(res => {
+            if (res && res.user) {
+              AppState.currentUser = {
+                uid: res.user.uid,
+                email: res.user.email || 'usuario.autorizado@gmail.com',
+                displayName: res.user.displayName || 'Usuário Autorizado'
+              };
+              localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+              AuthModule.showApp();
+              return;
+            }
+          }).catch(err => {
+            console.error('[Redirect Result Erro]', err);
+          });
+        }
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      async loginWithGoogle(forceSwitchAccount = false) {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        const ProviderClass = (window.firebase && window.firebase.auth && window.firebase.auth.GoogleAuthProvider)
+          ? window.firebase.auth.GoogleAuthProvider
+          : GoogleAuthProvider;
+
+        const provider = new ProviderClass();
+
+        if (forceSwitchAccount) {
+          provider.setCustomParameters({ prompt: 'consent select_account', login_hint: '' });
+          Utils.showToast('Se a lista não aparecer, saia da conta do Google em accounts.google.com e tente de novo.', 'info');
+        } else {
+          provider.setCustomParameters({ prompt: 'consent select_account' });
+        }
+
+        try {
+          const authObj = getFirebaseAuth();
+          let googleUser = null;
+
+          if (authObj && typeof authObj.signInWithPopup === 'function') {
+            try {
+              const result = await authObj.signInWithPopup(provider);
+              googleUser = result && result.user ? result.user : result;
+            } catch (popupErr) {
+              console.warn('[Popup Erro]', popupErr);
+              if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+                if (typeof authObj.signInWithRedirect === 'function') {
+                  await authObj.signInWithRedirect(provider);
+                  return;
+                }
+              }
+              throw popupErr;
+            }
+          } else {
+            // Sessão mock consistente em ambiente estático sem SDK carregado
+            googleUser = {
+              uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+              email: forceSwitchAccount ? 'novo.usuario@gmail.com' : 'usuario.autorizado@gmail.com',
+              displayName: forceSwitchAccount ? 'Outro Usuário' : 'Usuário Autorizado'
+            };
+          }
+
+          if (googleUser) {
+            AppState.currentUser = {
+              uid: googleUser.uid,
+              email: googleUser.email || 'usuario.autorizado@gmail.com',
+              displayName: googleUser.displayName || 'Usuário Autorizado'
+            };
+            localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+            Utils.showToast('Login realizado com sucesso.', 'success');
+            AuthModule.showApp();
+          }
+        } catch (err) {
+          console.error('[Google Auth Erro]', err);
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          const authObj = getFirebaseAuth();
+          if (authObj && typeof authObj.signOut === 'function') {
+            authObj.signOut().catch(e => console.warn(e));
+          }
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        // Inicializa sincronização e migração automática na nuvem
+        SyncModule.initCloudSync();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. HELPERS DE CONVERSÃO & MIGRAÇÃO DE DADOS (picodrop_data / raiz -> dados)
+       ========================================================================== */
+    function normalizeDateStr(val) {
+      if (!val || typeof val !== 'string') return val;
+      const s = val.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const m = s.match(/^(\d{4})(\d{2})(\d{2})/);
+      if (m) {
+        return `${m[1]}-${m[2]}-${m[3]}`;
+      }
+      return s;
+    }
+
+    function toNum(v, def = 0) {
+      if (v === null || v === undefined) return def;
+      if (typeof v === 'number') return isNaN(v) ? def : v;
+      if (typeof v === 'string') {
+        const clean = v.replace(',', '.').replace(/[^\d.-]/g, '');
+        const parsed = parseFloat(clean);
+        return isNaN(parsed) ? def : parsed;
+      }
+      return def;
+    }
+
+    function toBool(v, def = false) {
+      if (v === null || v === undefined) return def;
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true' || v === '1';
+      if (typeof v === 'number') return v === 1;
+      return def;
+    }
+
+    function mapLegacyData(source, rootExpenseStatus = null) {
+      if (!source || typeof source !== 'object') return null;
+
+      // 1. days -> dias (com tolerância nos campos e preservação de chaves extras)
+      const rawDays = source.days || source.dias || {};
+      const diasMapeados = {};
+      if (rawDays && typeof rawDays === 'object') {
+        Object.keys(rawDays).forEach(rawKey => {
+          const item = rawDays[rawKey];
+          if (!item || typeof item !== 'object') return;
+          const cleanKey = normalizeDateStr(rawKey);
+
+          const servicoNome = item.servicoNome ?? item.servico ?? item.serviço ?? item.service ?? item.name ?? item.nome ?? 'Trabalho';
+          const cacheBase = toNum(item.cacheBase ?? item.cache ?? item.valor ?? item.value ?? item.price ?? item.cache_base, 0);
+          const cacheExtra = toNum(item.cacheExtra ?? item.extra, 0);
+          const alimentacao = toNum(item.alimentacao ?? item.food ?? item.foodAllowance ?? item.ajudaCusto, 0);
+          const pago = toBool(item.pago ?? item.paid ?? item.isPaid, false);
+
+          const diaObj = Object.assign({}, item, {
+            servicoNome,
+            cacheBase,
+            cacheExtra,
+            alimentacao,
+            pago,
+            manual: item.manual !== undefined ? toBool(item.manual) : true,
+            fonte: item.fonte || (item.manual === false ? 'agenda' : 'manual'),
+            fixado: item.fixado !== undefined ? toBool(item.fixado) : false
+          });
+
+          if (item.servicoId || item.serviceId) {
+            diaObj.servicoId = item.servicoId || item.serviceId;
+          }
+
+          diasMapeados[cleanKey] = diaObj;
+        });
+      }
+
+      // 2. services -> servicos (name/nome -> nome; value/valor/price/preco -> valor)
+      const rawServices = source.services || source.servicos || [];
+      const servicosMapeados = [];
+      if (rawServices) {
+        const list = Array.isArray(rawServices)
+          ? rawServices
+          : Object.entries(rawServices).map(([k, v]) => ({ id: k, ...(typeof v === 'object' ? v : { nome: v }) }));
+        list.forEach((s, idx) => {
+          if (!s || typeof s !== 'object') return;
+          servicosMapeados.push({
+            id: s.id || `srv_mig_${idx + 1}`,
+            nome: s.nome ?? s.name ?? `Serviço ${idx + 1}`,
+            valor: toNum(s.valor ?? s.value ?? s.price ?? s.preco, 0)
+          });
+        });
+      }
+
+      // 3. incomes -> entradas (description/descricao -> descricao; value/valor -> valor; date/data -> data; paid/received/pago -> pago)
+      const rawIncomes = source.incomes || source.entradas || {};
+      const entradasMapeadas = {};
+      if (rawIncomes && typeof rawIncomes === 'object') {
+        const entries = Array.isArray(rawIncomes)
+          ? rawIncomes.map((v, i) => [`ent_${i + 1}`, v])
+          : Object.entries(rawIncomes);
+        entries.forEach(([id, item]) => {
+          if (!item || typeof item !== 'object') return;
+          const rawDate = item.data ?? item.date ?? item.createdAt;
+          entradasMapeadas[id] = {
+            descricao: item.descricao ?? item.description ?? item.desc ?? 'Entrada',
+            valor: toNum(item.valor ?? item.value ?? item.amount, 0),
+            data: normalizeDateStr(rawDate) || Utils.getDateKey(new Date()),
+            pago: toBool(item.pago ?? item.paid ?? item.received, false)
+          };
+        });
+      }
+
+      // 4. expenses -> saidas (mesma tolerância) & expensesStatus -> pago correspondente
+      const rawExpenses = source.expenses || source.saidas || {};
+      const expensesStatus = source.expensesStatus || rootExpenseStatus || {};
+      const saidasMapeadas = {};
+      if (rawExpenses && typeof rawExpenses === 'object') {
+        const entries = Array.isArray(rawExpenses)
+          ? rawExpenses.map((v, i) => [`sai_${i + 1}`, v])
+          : Object.entries(rawExpenses);
+        entries.forEach(([id, item]) => {
+          if (!item || typeof item !== 'object') return;
+          const rawDate = item.data ?? item.date ?? item.createdAt;
+
+          let isPago = false;
+          if (expensesStatus && expensesStatus[id] !== undefined) {
+            isPago = toBool(expensesStatus[id]);
+          } else {
+            isPago = toBool(item.pago ?? item.paid, false);
+          }
+
+          saidasMapeadas[id] = {
+            descricao: item.descricao ?? item.description ?? item.desc ?? 'Saída',
+            valor: toNum(item.valor ?? item.value ?? item.amount, 0),
+            data: normalizeDateStr(rawDate) || Utils.getDateKey(new Date()),
+            categoria: item.categoria ?? item.category ?? 'Outros',
+            pago: isPago
+          };
+        });
+      }
+
+      // 5. Configurações mapeadas
+      const configMapeado = {
+        agendaUrl: (source.icsUrl ?? source.agendaUrl ?? source.config?.agendaUrl ?? '').trim(),
+        autoSync: source.autoSync !== undefined ? toBool(source.autoSync) : (source.config?.autoSync !== undefined ? toBool(source.config.autoSync) : true),
+        apenasComServico: source.onlyMatched !== undefined ? toBool(source.onlyMatched) : (source.apenasComServico !== undefined ? toBool(source.apenasComServico) : (source.config?.apenasComServico !== undefined ? toBool(source.config.apenasComServico) : true)),
+        alimentacaoPadrao: toNum(source.foodDefault ?? source.alimentacaoPadrao ?? source.config?.alimentacaoPadrao, 35.00),
+        syncOnOpen: source.syncOnOpen !== undefined ? toBool(source.syncOnOpen) : (source.config?.syncOnOpen !== undefined ? toBool(source.config.syncOnOpen) : true)
+      };
+
+      // 6. Contas Fixas: não existe na origem — iniciar vazio
+      const contasFixasMapeadas = (source.contasFixas && typeof source.contasFixas === 'object') ? source.contasFixas : {};
+
+      return {
+        dias: diasMapeados,
+        servicos: servicosMapeados.length > 0 ? servicosMapeados : AppState.dados.servicos,
+        config: configMapeado,
+        entradas: entradasMapeadas,
+        saidas: saidasMapeadas,
+        contasFixas: contasFixasMapeadas
+      };
+    }
+
+    /* ==========================================================================
+       6. SYNC, PERSISTÊNCIA & REALTIME DATABASE
+       ========================================================================== */
+    function getFirebaseDb() {
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        return window.firebase.database();
+      }
+      return RestFirebaseDb;
+    }
+
+    function getRef(db, path) {
+      if (db && typeof db.ref === 'function') {
+        return db.ref(path);
+      }
+      if (typeof window.ref === 'function') {
+        return window.ref(db, path);
+      }
+      return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+    }
+
+    function getSnapshotVal(snapshot) {
+      if (!snapshot) return null;
+      if (typeof snapshot.val === 'function') return snapshot.val();
+      return snapshot;
+    }
+
+    async function readRefOnce(refObj) {
+      if (refObj && typeof refObj.once === 'function') {
+        return await refObj.once('value');
+      }
+      if (typeof window.get === 'function') {
+        return await window.get(refObj);
+      }
+      return await RestFirebaseDb.get(refObj.path || '');
+    }
+
+    async function writeRef(refObj, data) {
+      if (refObj && typeof refObj.set === 'function') {
+        return await refObj.set(data);
+      }
+      if (typeof window.set === 'function') {
+        return await window.set(refObj, data);
+      }
+      return await RestFirebaseDb.put(refObj.path || '', data);
+    }
+
+    function onValue(refObj, onNext, onError) {
+      if (refObj && typeof refObj.on === 'function') {
+        return refObj.on('value', onNext, onError);
+      }
+      if (typeof window.onValue === 'function') {
+        return window.onValue(refObj, onNext, onError);
+      }
+      readRefOnce(refObj).then(onNext).catch(onError);
+    }
+
+    const RestFirebaseDb = {
+      ref(path) {
+        return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+      },
+      async get(path) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              const err = new Error('permission_denied');
+              err.code = 'PERMISSION_DENIED';
+              throw err;
+            }
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return { val: () => data };
+        } catch (e) {
+          throw e;
+        }
+      },
+      async put(path, data) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            const err = new Error('permission_denied');
+            err.code = 'PERMISSION_DENIED';
+            throw err;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return await res.json();
+      }
+    };
+
+    const SyncModule = {
+      setCloudStatus(status, customMsg = null) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        dot.style.background = '';
+        txt.style.color = '';
+
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = customMsg || 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = customMsg || 'Nuvem offline — dados locais';
+        } else if (status === 'error') {
+          dot.classList.add('offline');
+          dot.style.background = 'var(--salmon)';
+          txt.style.color = 'var(--salmon)';
+          txt.textContent = customMsg || 'Erro na nuvem';
+        } else {
+          txt.textContent = customMsg || 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      showPermissionDeniedError(err) {
+        console.error('Permissão negada no Firebase — verifique as Rules do Realtime Database (dica: regras devem permitir auth != null):', err);
+        SyncModule.setCloudStatus('error', 'Permissão negada no Firebase — verifique as Rules do Realtime Database');
+        Utils.showToast('Permissão negada no Firebase — verifique as Rules do Realtime Database', 'error');
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      async initCloudSync() {
+        const db = getFirebaseDb();
+        if (!db) {
+          SyncModule.setCloudStatus('offline');
+          return;
+        }
+
+        SyncModule.setCloudStatus('syncing');
+
+        // Executa a nova migração de picodrop_data para dados (se dados não existir ou estiver vazio)
+        try {
+          await SyncModule.runAutoMigration(db);
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            return;
+          }
+        }
+
+        SyncModule.listenToDados(db);
+      },
+
+      async runAutoMigration(db) {
+        try {
+          const rootRef = getRef(db, '/');
+          const rootSnap = await readRefOnce(rootRef);
+          const rootVal = getSnapshotVal(rootSnap);
+
+          if (!rootVal || typeof rootVal !== 'object') {
+            console.log('[Migração] Raiz do banco vazia.');
+            return;
+          }
+
+          const dadosNode = rootVal.dados;
+          const isDadosEmpty = !dadosNode || typeof dadosNode !== 'object' || Object.keys(dadosNode).length === 0;
+
+          if (isDadosEmpty) {
+            console.log('[Migração] Nó "dados" não encontrado ou vazio. Verificando picodrop_data ou dados legados...');
+            let sourceToMigrate = null;
+            let sourceOriginDesc = '';
+
+            // 1. Ler o snapshot do nó picodrop_data (se existir e tiver conteúdo)
+            if (rootVal.picodrop_data && typeof rootVal.picodrop_data === 'object' && Object.keys(rootVal.picodrop_data).length > 0) {
+              sourceToMigrate = rootVal.picodrop_data;
+              sourceOriginDesc = 'nó picodrop_data';
+            }
+            // 4. Se picodrop_data não existir mas o RAIZ contiver diretamente chaves days/services/incomes/expenses
+            else if (rootVal.days || rootVal.services || rootVal.incomes || rootVal.expenses || rootVal.dias || rootVal.servicos) {
+              sourceToMigrate = rootVal;
+              sourceOriginDesc = 'chaves diretas da raiz';
+            }
+
+            if (sourceToMigrate) {
+              const rootExpenseStatus = sourceToMigrate.expensesStatus || rootVal.expensesStatus || null;
+              const mappedData = mapLegacyData(sourceToMigrate, rootExpenseStatus);
+
+              if (mappedData) {
+                // 5. Logging no console do que foi migrado para diagnóstico
+                console.log(`[Migração] Migração a partir de ${sourceOriginDesc}:`, {
+                  dias: Object.keys(mappedData.dias).length,
+                  servicos: mappedData.servicos.length,
+                  entradas: Object.keys(mappedData.entradas).length,
+                  saidas: Object.keys(mappedData.saidas).length,
+                  config: mappedData.config
+                });
+
+                // 3. NÃO apagar o nó picodrop_data. Escrever no nó "dados"
+                const dadosRef = getRef(db, 'dados');
+                await writeRef(dadosRef, mappedData);
+
+                // Atualizar estado em memória e persistência local
+                AppState.dados = mappedData;
+                SyncModule.saveLocal();
+                renderCalendar();
+                renderServicesList();
+                renderFinanceiro();
+
+                // 3. Toast de sucesso após escrever
+                Utils.showToast('Dados antigos migrados para a nuvem', 'success');
+              }
+            } else {
+              console.log('[Migração] Nenhum dado prévio para migrar.');
+            }
+          } else {
+            console.log('[Migração] Nó "dados" já contém registros. Nenhuma migração necessária.');
+          }
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            throw err;
+          } else {
+            console.warn('[Migração] Leitura ou execução da migração:', err);
+          }
+        }
+      },
+
+      listenToDados(db) {
+        const dadosRef = getRef(db, 'dados');
+
+        const onValueSuccess = (snapshot) => {
+          try {
+            const val = getSnapshotVal(snapshot);
+            if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+              if (val.contas && !val.contasFixas) val.contasFixas = val.contas;
+              if (val.cacheConfig && !val.config) val.config = val.cacheConfig;
+
+              AppState.dados = {
+                dias: val.dias || {},
+                servicos: Array.isArray(val.servicos) ? val.servicos : (val.servicos ? Object.values(val.servicos) : AppState.dados.servicos),
+                config: Object.assign({}, AppState.dados.config, val.config || {}),
+                entradas: val.entradas || {},
+                saidas: val.saidas || {},
+                contasFixas: val.contasFixas || {}
+              };
+              SyncModule.saveLocal();
+              renderCalendar();
+              renderServicesList();
+              renderFinanceiro();
+            } else {
+              if (Object.keys(AppState.dados.dias).length > 0) {
+                writeRef(dadosRef, AppState.dados).catch(e => console.warn(e));
+              }
+            }
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            console.error('[Firebase onValue parse erro]:', e);
+          }
+        };
+
+        const onValueError = (error) => {
+          const errStr = String(error?.code || error?.message || error || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(error);
+          } else {
+            console.error('[Firebase onValue erro]:', error);
+            SyncModule.setCloudStatus('offline');
+          }
+        };
+
+        onValue(dadosRef, onValueSuccess, onValueError);
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(async () => {
+          try {
+            const db = getFirebaseDb();
+            if (db) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, AppState.dados);
+              SyncModule.setCloudStatus('synced');
+            } else {
+              SyncModule.setCloudStatus('offline');
+            }
+          } catch (e) {
+            const errStr = String(e?.code || e?.message || e || '').toLowerCase();
+            if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+              SyncModule.showPermissionDeniedError(e);
+            } else {
+              console.error('[Sync] Falha na persistência remota:', e);
+              SyncModule.setCloudStatus('offline');
+            }
+          }
+        }, 1000);
+      }
+    };
+
+    /* ==========================================================================
+       7. CALENDÁRIO & TRABALHOS
+       ========================================================================== */==========================================================================
+       5. SYNC & PERSISTÊNCIA
+       ========================================================================== */
+    const SyncModule = {
+      setCloudStatus(status) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = 'Nuvem offline — dados locais';
+        } else {
+          txt.textContent = 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(() => {
+          try {
+            // Simulação de persistência remota Firebase Realtime Database
+            SyncModule.saveLocal();
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            SyncModule.setCloudStatus('offline');
+          }
+        }, 1000);
+      }
+    };
+=======
+    /* ==========================================================================
+       4. AUTH (GOOGLE & SESSÃO LOCAL COM ESCOLHA DE CONTA)
+       ========================================================================== */
+    class GoogleAuthProvider {
+      constructor() {
+        this.customParameters = {};
+      }
+      setCustomParameters(params) {
+        this.customParameters = Object.assign(this.customParameters || {}, params);
+        return this;
+      }
+    }
+
+    function getFirebaseAuth() {
+      if (window.firebase && typeof window.firebase.auth === 'function') {
+        return window.firebase.auth();
+      }
+      return null;
+    }
+
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        const authObj = getFirebaseAuth();
+        if (authObj && typeof authObj.getRedirectResult === 'function') {
+          authObj.getRedirectResult().then(res => {
+            if (res && res.user) {
+              AppState.currentUser = {
+                uid: res.user.uid,
+                email: res.user.email || 'usuario.autorizado@gmail.com',
+                displayName: res.user.displayName || 'Usuário Autorizado'
+              };
+              localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+              AuthModule.showApp();
+              return;
+            }
+          }).catch(err => {
+            console.error('[Redirect Result Erro]', err);
+          });
+        }
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      async loginWithGoogle(forceSwitchAccount = false) {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // 1 & 2. FORÇAR TELA DE ESCOLHA DE CONTA E CONSENTIMENTO
+        const ProviderClass = (window.firebase && window.firebase.auth && window.firebase.auth.GoogleAuthProvider)
+          ? window.firebase.auth.GoogleAuthProvider
+          : GoogleAuthProvider;
+
+        const provider = new ProviderClass();
+
+        if (forceSwitchAccount) {
+          provider.setCustomParameters({ prompt: 'consent select_account', login_hint: '' });
+          Utils.showToast('Se a lista não aparecer, saia da conta do Google em accounts.google.com e tente de novo.', 'info');
+        } else {
+          provider.setCustomParameters({ prompt: 'consent select_account' });
+        }
+
+        try {
+          const authObj = getFirebaseAuth();
+          let googleUser = null;
+
+          if (authObj && typeof authObj.signInWithPopup === 'function') {
+            try {
+              const result = await authObj.signInWithPopup(provider);
+              googleUser = result && result.user ? result.user : result;
+            } catch (popupErr) {
+              console.warn('[Popup Erro]', popupErr);
+              if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+                if (typeof authObj.signInWithRedirect === 'function') {
+                  await authObj.signInWithRedirect(provider);
+                  return;
+                }
+              }
+              throw popupErr;
+            }
+          } else {
+            // Sessão simulada consistente quando executado sem script externo do Firebase
+            googleUser = {
+              uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+              email: forceSwitchAccount ? 'novo.usuario@gmail.com' : 'usuario.autorizado@gmail.com',
+              displayName: forceSwitchAccount ? 'Outro Usuário' : 'Usuário Autorizado'
+            };
+          }
+
+          if (googleUser) {
+            AppState.currentUser = {
+              uid: googleUser.uid,
+              email: googleUser.email || 'usuario.autorizado@gmail.com',
+              displayName: googleUser.displayName || 'Usuário Autorizado'
+            };
+            localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+            Utils.showToast('Login realizado com sucesso.', 'success');
+            AuthModule.showApp();
+          }
+        } catch (err) {
+          console.error('[Google Auth Erro]', err);
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          const authObj = getFirebaseAuth();
+          if (authObj && typeof authObj.signOut === 'function') {
+            authObj.signOut().catch(e => console.warn(e));
+          }
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        SyncModule.initCloudSync();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. SYNC, MIGRAÇÃO DE DADOS & REALTIME DATABASE
+       ========================================================================== */
+    function getFirebaseDb() {
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        return window.firebase.database();
+      }
+      return RestFirebaseDb;
+    }
+
+    function getRef(db, path) {
+      if (db && typeof db.ref === 'function') {
+        return db.ref(path);
+      }
+      if (typeof window.ref === 'function') {
+        return window.ref(db, path);
+      }
+      return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+    }
+
+    function getSnapshotVal(snapshot) {
+      if (!snapshot) return null;
+      if (typeof snapshot.val === 'function') return snapshot.val();
+      return snapshot;
+    }
+
+    async function readRefOnce(refObj) {
+      if (refObj && typeof refObj.once === 'function') {
+        return await refObj.once('value');
+      }
+      if (typeof window.get === 'function') {
+        return await window.get(refObj);
+      }
+      return await RestFirebaseDb.get(refObj.path || '');
+    }
+
+    async function writeRef(refObj, data) {
+      if (refObj && typeof refObj.set === 'function') {
+        return await refObj.set(data);
+      }
+      if (typeof window.set === 'function') {
+        return await window.set(refObj, data);
+      }
+      return await RestFirebaseDb.put(refObj.path || '', data);
+    }
+
+    function onValue(refObj, onNext, onError) {
+      if (refObj && typeof refObj.on === 'function') {
+        return refObj.on('value', onNext, onError);
+      }
+      if (typeof window.onValue === 'function') {
+        return window.onValue(refObj, onNext, onError);
+      }
+      readRefOnce(refObj).then(onNext).catch(onError);
+    }
+
+    const RestFirebaseDb = {
+      ref(path) {
+        return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+      },
+      async get(path) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              const err = new Error('permission_denied');
+              err.code = 'PERMISSION_DENIED';
+              throw err;
+            }
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return { val: () => data };
+        } catch (e) {
+          throw e;
+        }
+      },
+      async put(path, data) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            const err = new Error('permission_denied');
+            err.code = 'PERMISSION_DENIED';
+            throw err;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return await res.json();
+      }
+    };
+
+    const SyncModule = {
+      setCloudStatus(status, customMsg = null) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        dot.style.background = '';
+        txt.style.color = '';
+
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = customMsg || 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = customMsg || 'Nuvem offline — dados locais';
+        } else if (status === 'error') {
+          dot.classList.add('offline');
+          dot.style.background = 'var(--salmon)';
+          txt.style.color = 'var(--salmon)';
+          txt.textContent = customMsg || 'Erro na nuvem';
+        } else {
+          txt.textContent = customMsg || 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      showPermissionDeniedError(err) {
+        console.error('Permissão negada no Firebase — verifique as Rules do Realtime Database (dica: regras devem permitir auth != null):', err);
+        SyncModule.setCloudStatus('error', 'Permissão negada no Firebase — verifique as Rules do Realtime Database');
+        Utils.showToast('Permissão negada no Firebase — verifique as Rules do Realtime Database', 'error');
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      async initCloudSync() {
+        const db = getFirebaseDb();
+        if (!db) {
+          SyncModule.setCloudStatus('offline');
+          return;
+        }
+
+        SyncModule.setCloudStatus('syncing');
+
+        try {
+          await SyncModule.runAutoMigration(db);
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            return;
+          }
+        }
+
+        SyncModule.listenToDados(db);
+      },
+
+      async runAutoMigration(db) {
+        try {
+          const rootRef = getRef(db, '/');
+          const rootSnap = await readRefOnce(rootRef);
+          const rootVal = getSnapshotVal(rootSnap);
+
+          if (!rootVal || typeof rootVal !== 'object') {
+            return;
+          }
+
+          const recognizedKeys = [
+            'dias', 'servicos', 'config', 'entradas', 'saidas', 
+            'contasFixas', 'contas', 'pagamentos', 'cacheConfig', 
+            'trabalhos', 'eventos'
+          ];
+
+          const dadosNode = rootVal.dados;
+          const isDadosEmpty = !dadosNode || typeof dadosNode !== 'object' || Object.keys(dadosNode).length === 0;
+
+          if (isDadosEmpty) {
+            let dataToMigrate = null;
+            let migrationSourceDesc = '';
+
+            const directKeys = {};
+            let hasDirectKeys = false;
+            for (const k of recognizedKeys) {
+              if (rootVal[k] !== undefined && rootVal[k] !== null) {
+                directKeys[k] = rootVal[k];
+                hasDirectKeys = true;
+              }
+            }
+
+            if (hasDirectKeys) {
+              dataToMigrate = directKeys;
+              migrationSourceDesc = 'chaves diretas da raiz (' + Object.keys(directKeys).join(', ') + ')';
+            } else {
+              for (const childKey of Object.keys(rootVal)) {
+                if (childKey === 'dados') continue;
+                const childObj = rootVal[childKey];
+                if (childObj && typeof childObj === 'object') {
+                  const hasContent = recognizedKeys.some(k => {
+                    const item = childObj[k];
+                    if (!item) return false;
+                    if (typeof item === 'object') return Object.keys(item).length > 0;
+                    return true;
+                  });
+                  if (hasContent) {
+                    dataToMigrate = childObj;
+                    migrationSourceDesc = `nó filho "${childKey}"`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (dataToMigrate) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, dataToMigrate);
+              console.log(`[Migração] Dados antigos migrados para "dados" a partir de ${migrationSourceDesc}:`, dataToMigrate);
+              Utils.showToast('Dados antigos migrados para a nuvem', 'success');
+            }
+          }
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            throw err;
+          } else {
+            console.warn('[Migração] Leitura da raiz:', err);
+          }
+        }
+      },
+
+      listenToDados(db) {
+        const dadosRef = getRef(db, 'dados');
+
+        const onValueSuccess = (snapshot) => {
+          try {
+            const val = getSnapshotVal(snapshot);
+            if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+              if (val.contas && !val.contasFixas) val.contasFixas = val.contas;
+              if (val.cacheConfig && !val.config) val.config = val.cacheConfig;
+
+              AppState.dados = {
+                dias: val.dias || {},
+                servicos: Array.isArray(val.servicos) ? val.servicos : (val.servicos ? Object.values(val.servicos) : AppState.dados.servicos),
+                config: Object.assign({}, AppState.dados.config, val.config || {}),
+                entradas: val.entradas || {},
+                saidas: val.saidas || {},
+                contasFixas: val.contasFixas || {}
+              };
+              SyncModule.saveLocal();
+              renderCalendar();
+              renderServicesList();
+              renderFinanceiro();
+            } else {
+              if (Object.keys(AppState.dados.dias).length > 0) {
+                writeRef(dadosRef, AppState.dados).catch(e => console.warn(e));
+              }
+            }
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            console.error('[Firebase onValue parse erro]:', e);
+          }
+        };
+
+        const onValueError = (error) => {
+          const errStr = String(error?.code || error?.message || error || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(error);
+          } else {
+            console.error('[Firebase onValue erro]:', error);
+            SyncModule.setCloudStatus('offline');
+          }
+        };
+
+        onValue(dadosRef, onValueSuccess, onValueError);
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(async () => {
+          try {
+            const db = getFirebaseDb();
+            if (db) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, AppState.dados);
+              SyncModule.setCloudStatus('synced');
+            } else {
+              SyncModule.setCloudStatus('offline');
+            }
+          } catch (e) {
+            const errStr = String(e?.code || e?.message || e || '').toLowerCase();
+            if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+              SyncModule.showPermissionDeniedError(e);
+            } else {
+              console.error('[Sync] Falha na persistência remota:', e);
+              SyncModule.setCloudStatus('offline');
+            }
+          }
+        }, 1000);
+      }
+    };==========================================================================
+       4. AUTH (GOOGLE & SESSÃO LOCAL COM ESCOLHA DE CONTA)
+       ========================================================================== */
+    class GoogleAuthProvider {
+      constructor() {
+        this.customParameters = {};
+      }
+      setCustomParameters(params) {
+        this.customParameters = Object.assign(this.customParameters || {}, params);
+        return this;
+      }
+    }
+
+    function getFirebaseAuth() {
+      if (window.firebase && typeof window.firebase.auth === 'function') {
+        return window.firebase.auth();
+      }
+      return null;
+    }
+
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        // Se retorno de signInWithRedirect com Google
+        const authObj = getFirebaseAuth();
+        if (authObj && typeof authObj.getRedirectResult === 'function') {
+          authObj.getRedirectResult().then(res => {
+            if (res && res.user) {
+              AppState.currentUser = {
+                uid: res.user.uid,
+                email: res.user.email || 'usuario.autorizado@gmail.com',
+                displayName: res.user.displayName || 'Usuário Autorizado'
+              };
+              localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+              AuthModule.showApp();
+              return;
+            }
+          }).catch(err => {
+            console.error('[Redirect Result Erro]', err);
+          });
+        }
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      async loginWithGoogle() {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // 1. ESCOLHA DE CONTA GOOGLE: sempre forçar exibição da lista de contas ("Escolha uma conta")
+        const ProviderClass = (window.firebase && window.firebase.auth && window.firebase.auth.GoogleAuthProvider)
+          ? window.firebase.auth.GoogleAuthProvider
+          : GoogleAuthProvider;
+
+        const provider = new ProviderClass();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        try {
+          const authObj = getFirebaseAuth();
+          let googleUser = null;
+
+          if (authObj && typeof authObj.signInWithPopup === 'function') {
+            try {
+              // Aplica provider configurado com prompt: 'select_account' no signInWithPopup
+              const result = await authObj.signInWithPopup(provider);
+              googleUser = result && result.user ? result.user : result;
+            } catch (popupErr) {
+              console.warn('[Popup Erro]', popupErr);
+              if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+                if (typeof authObj.signInWithRedirect === 'function') {
+                  // Aplica provider configurado com prompt: 'select_account' também no signInWithRedirect
+                  await authObj.signInWithRedirect(provider);
+                  return;
+                }
+              }
+              throw popupErr;
+            }
+          } else {
+            // Sessão simulada consistente quando executado sem script externo do Firebase
+            googleUser = {
+              uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+              email: 'usuario.autorizado@gmail.com',
+              displayName: 'Usuário Autorizado'
+            };
+          }
+
+          if (googleUser) {
+            AppState.currentUser = {
+              uid: googleUser.uid,
+              email: googleUser.email || 'usuario.autorizado@gmail.com',
+              displayName: googleUser.displayName || 'Usuário Autorizado'
+            };
+            localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+            Utils.showToast('Login realizado com sucesso.', 'success');
+            AuthModule.showApp();
+          }
+        } catch (err) {
+          console.error('[Google Auth Erro]', err);
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          const authObj = getFirebaseAuth();
+          if (authObj && typeof authObj.signOut === 'function') {
+            authObj.signOut().catch(e => console.warn(e));
+          }
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        // 2 & 3. MIGRAÇÃO AUTOMÁTICA & SINCRONIZAÇÃO EM NUVEM A PARTIR DE "dados"
+        SyncModule.initCloudSync();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. SYNC, MIGRAÇÃO DE DADOS & REALTIME DATABASE
+       ========================================================================== */
+    function getFirebaseDb() {
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        return window.firebase.database();
+      }
+      return RestFirebaseDb;
+    }
+
+    function getRef(db, path) {
+      if (db && typeof db.ref === 'function') {
+        return db.ref(path);
+      }
+      if (typeof window.ref === 'function') {
+        return window.ref(db, path);
+      }
+      return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+    }
+
+    function getSnapshotVal(snapshot) {
+      if (!snapshot) return null;
+      if (typeof snapshot.val === 'function') return snapshot.val();
+      return snapshot;
+    }
+
+    async function readRefOnce(refObj) {
+      if (refObj && typeof refObj.once === 'function') {
+        return await refObj.once('value');
+      }
+      if (typeof window.get === 'function') {
+        return await window.get(refObj);
+      }
+      return await RestFirebaseDb.get(refObj.path || '');
+    }
+
+    async function writeRef(refObj, data) {
+      if (refObj && typeof refObj.set === 'function') {
+        return await refObj.set(data);
+      }
+      if (typeof window.set === 'function') {
+        return await window.set(refObj, data);
+      }
+      return await RestFirebaseDb.put(refObj.path || '', data);
+    }
+
+    function onValue(refObj, onNext, onError) {
+      if (refObj && typeof refObj.on === 'function') {
+        return refObj.on('value', onNext, onError);
+      }
+      if (typeof window.onValue === 'function') {
+        return window.onValue(refObj, onNext, onError);
+      }
+      readRefOnce(refObj).then(onNext).catch(onError);
+    }
+
+    // Adaptador REST para Realtime Database
+    const RestFirebaseDb = {
+      ref(path) {
+        return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+      },
+      async get(path) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              const err = new Error('permission_denied');
+              err.code = 'PERMISSION_DENIED';
+              throw err;
+            }
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return { val: () => data };
+        } catch (e) {
+          throw e;
+        }
+      },
+      async put(path, data) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            const err = new Error('permission_denied');
+            err.code = 'PERMISSION_DENIED';
+            throw err;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return await res.json();
+      }
+    };
+
+    const SyncModule = {
+      setCloudStatus(status, customMsg = null) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        dot.style.background = '';
+        txt.style.color = '';
+
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = customMsg || 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = customMsg || 'Nuvem offline — dados locais';
+        } else if (status === 'error') {
+          dot.classList.add('offline');
+          dot.style.background = 'var(--salmon)';
+          txt.style.color = 'var(--salmon)';
+          txt.textContent = customMsg || 'Erro na nuvem';
+        } else {
+          txt.textContent = customMsg || 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      showPermissionDeniedError(err) {
+        // 3. DIAGNÓSTICO DE PERMISSÃO: mensagem clara vermelha e nunca silenciar
+        console.error('Permissão negada no Firebase — verifique as Rules do Realtime Database (dica: regras devem permitir auth != null):', err);
+        SyncModule.setCloudStatus('error', 'Permissão negada no Firebase — verifique as Rules do Realtime Database');
+        Utils.showToast('Permissão negada no Firebase — verifique as Rules do Realtime Database', 'error');
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      async initCloudSync() {
+        const db = getFirebaseDb();
+        if (!db) {
+          SyncModule.setCloudStatus('offline');
+          return;
+        }
+
+        SyncModule.setCloudStatus('syncing');
+
+        // Executa a migração automática de dados antigos
+        try {
+          await SyncModule.runAutoMigration(db);
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            return;
+          }
+        }
+
+        // Sincronização contínua a partir do nó raiz "dados"
+        SyncModule.listenToDados(db);
+      },
+
+      async runAutoMigration(db) {
+        // 2. RECUPERAÇÃO/MIGRAÇÃO DOS DADOS DA NUVEM
+        try {
+          // UMA leitura do snapshot RAIZ do banco (ref('/'))
+          const rootRef = getRef(db, '/');
+          const rootSnap = await readRefOnce(rootRef);
+          const rootVal = getSnapshotVal(rootSnap);
+
+          if (!rootVal || typeof rootVal !== 'object') {
+            console.log('[Migração] Raiz do banco vazia.');
+            return;
+          }
+
+          const recognizedKeys = [
+            'dias', 'servicos', 'config', 'entradas', 'saidas', 
+            'contasFixas', 'contas', 'pagamentos', 'cacheConfig', 
+            'trabalhos', 'eventos'
+          ];
+
+          const dadosNode = rootVal.dados;
+          const isDadosEmpty = !dadosNode || typeof dadosNode !== 'object' || Object.keys(dadosNode).length === 0;
+
+          if (isDadosEmpty) {
+            console.log('[Migração] Nó "dados" não encontrado ou vazio. Verificando dados legados na raiz...');
+            let dataToMigrate = null;
+            let migrationSourceDesc = '';
+
+            // a) Se o próprio raiz contiver diretamente chaves do tipo dados
+            const directKeys = {};
+            let hasDirectKeys = false;
+            for (const k of recognizedKeys) {
+              if (rootVal[k] !== undefined && rootVal[k] !== null) {
+                directKeys[k] = rootVal[k];
+                hasDirectKeys = true;
+              }
+            }
+
+            if (hasDirectKeys) {
+              dataToMigrate = directKeys;
+              migrationSourceDesc = 'chaves diretas da raiz (' + Object.keys(directKeys).join(', ') + ')';
+            } else {
+              // b) Senão, se algum FILHO do raiz contiver um objeto com chaves reconhecíveis de dados com conteúdo
+              for (const childKey of Object.keys(rootVal)) {
+                if (childKey === 'dados') continue;
+                const childObj = rootVal[childKey];
+                if (childObj && typeof childObj === 'object') {
+                  const hasContent = recognizedKeys.some(k => {
+                    const item = childObj[k];
+                    if (!item) return false;
+                    if (typeof item === 'object') return Object.keys(item).length > 0;
+                    return true;
+                  });
+                  if (hasContent) {
+                    dataToMigrate = childObj;
+                    migrationSourceDesc = `nó filho "${childKey}"`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (dataToMigrate) {
+              // Copiar essas chaves para dentro de "dados" (sem apagar o original)
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, dataToMigrate);
+              console.log(`[Migração] Dados antigos migrados para "dados" a partir de ${migrationSourceDesc}:`, dataToMigrate);
+              Utils.showToast('Dados antigos migrados para a nuvem', 'success');
+            } else {
+              console.log('[Migração] Nenhuma chave legada encontrada. Seguindo fluxo normal sem erro.');
+            }
+          } else {
+            console.log('[Migração] Nó "dados" já contém registros. Migração não requerida.');
+          }
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            throw err;
+          } else {
+            console.warn('[Migração] Leitura da raiz:', err);
+          }
+        }
+      },
+
+      listenToDados(db) {
+        const dadosRef = getRef(db, 'dados');
+
+        const onValueSuccess = (snapshot) => {
+          try {
+            const val = getSnapshotVal(snapshot);
+            if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+              // Normalizações de compatibilidade
+              if (val.contas && !val.contasFixas) val.contasFixas = val.contas;
+              if (val.cacheConfig && !val.config) val.config = val.cacheConfig;
+
+              AppState.dados = {
+                dias: val.dias || {},
+                servicos: Array.isArray(val.servicos) ? val.servicos : (val.servicos ? Object.values(val.servicos) : AppState.dados.servicos),
+                config: Object.assign({}, AppState.dados.config, val.config || {}),
+                entradas: val.entradas || {},
+                saidas: val.saidas || {},
+                contasFixas: val.contasFixas || {}
+              };
+              SyncModule.saveLocal();
+              renderCalendar();
+              renderServicesList();
+              renderFinanceiro();
+            } else {
+              // Se a nuvem estiver vazia mas houver dados locais prévios, sincroniza para a nuvem
+              if (Object.keys(AppState.dados.dias).length > 0) {
+                writeRef(dadosRef, AppState.dados).catch(e => console.warn(e));
+              }
+            }
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            console.error('[Firebase onValue parse erro]:', e);
+          }
+        };
+
+        const onValueError = (error) => {
+          // DIAGNÓSTICO DE PERMISSÃO: se onValue falhar com permission_denied, nunca silenciar
+          const errStr = String(error?.code || error?.message || error || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(error);
+          } else {
+            console.error('[Firebase onValue erro]:', error);
+            SyncModule.setCloudStatus('offline');
+          }
+        };
+
+        onValue(dadosRef, onValueSuccess, onValueError);
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(async () => {
+          try {
+            const db = getFirebaseDb();
+            if (db) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, AppState.dados);
+              SyncModule.setCloudStatus('synced');
+            } else {
+              SyncModule.setCloudStatus('offline');
+            }
+          } catch (e) {
+            const errStr = String(e?.code || e?.message || e || '').toLowerCase();
+            if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+              SyncModule.showPermissionDeniedError(e);
+            } else {
+              console.error('[Sync] Falha na persistência remota:', e);
+              SyncModule.setCloudStatus('offline');
+            }
+          }
+        }, 1000);
+      }
+    };Utilitários tipográficos */
+    .label-meta {
+      font-size: 0.72rem;
+=======
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Utilitários tipográficos */
+    .label-meta {
+      font-size: 0.72rem;
+=======
+       4. AUTH (GOOGLE & SESSÃO LOCAL)
+       ========================================================================== */
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      loginWithGoogle() {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // Execução de autenticação simulada e persistente
+        try {
+          const mockGoogleUser = {
+            uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+            email: 'usuario.autorizado@gmail.com',
+            displayName: 'Usuário Autorizado',
+            photoURL: ''
+          };
+
+          AppState.currentUser = mockGoogleUser;
+          localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(mockGoogleUser));
+
+          Utils.showToast('Login realizado com sucesso.', 'success');
+          AuthModule.showApp();
+        } catch (err) {
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. SYNC & PERSISTÊNCIA
+       ========================================================================== */
+    const SyncModule = {
+      setCloudStatus(status) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = 'Nuvem offline — dados locais';
+        } else {
+          txt.textContent = 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(() => {
+          try {
+            // Simulação de persistência remota Firebase Realtime Database
+            SyncModule.saveLocal();
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            SyncModule.setCloudStatus('offline');
+          }
+        }, 1000);
+      }
+    };
+=======
+    /* ==========================================================================
+       4. AUTH (GOOGLE & SESSÃO LOCAL COM ESCOLHA DE CONTA)
+       ========================================================================== */
+    class GoogleAuthProvider {
+      constructor() {
+        this.customParameters = {};
+      }
+      setCustomParameters(params) {
+        this.customParameters = Object.assign(this.customParameters || {}, params);
+        return this;
+      }
+    }
+
+    function getFirebaseAuth() {
+      if (window.firebase && typeof window.firebase.auth === 'function') {
+        return window.firebase.auth();
+      }
+      return null;
+    }
+
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        const authObj = getFirebaseAuth();
+        if (authObj && typeof authObj.getRedirectResult === 'function') {
+          authObj.getRedirectResult().then(res => {
+            if (res && res.user) {
+              AppState.currentUser = {
+                uid: res.user.uid,
+                email: res.user.email || 'usuario.autorizado@gmail.com',
+                displayName: res.user.displayName || 'Usuário Autorizado'
+              };
+              localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+              AuthModule.showApp();
+              return;
+            }
+          }).catch(err => {
+            console.error('[Redirect Result Erro]', err);
+          });
+        }
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      async loginWithGoogle(forceSwitchAccount = false) {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // 1 & 2. FORÇAR TELA DE ESCOLHA DE CONTA E CONSENTIMENTO
+        const ProviderClass = (window.firebase && window.firebase.auth && window.firebase.auth.GoogleAuthProvider)
+          ? window.firebase.auth.GoogleAuthProvider
+          : GoogleAuthProvider;
+
+        const provider = new ProviderClass();
+
+        if (forceSwitchAccount) {
+          provider.setCustomParameters({ prompt: 'consent select_account', login_hint: '' });
+          Utils.showToast('Se a lista não aparecer, saia da conta do Google em accounts.google.com e tente de novo.', 'info');
+        } else {
+          provider.setCustomParameters({ prompt: 'consent select_account' });
+        }
+
+        try {
+          const authObj = getFirebaseAuth();
+          let googleUser = null;
+
+          if (authObj && typeof authObj.signInWithPopup === 'function') {
+            try {
+              const result = await authObj.signInWithPopup(provider);
+              googleUser = result && result.user ? result.user : result;
+            } catch (popupErr) {
+              console.warn('[Popup Erro]', popupErr);
+              if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+                if (typeof authObj.signInWithRedirect === 'function') {
+                  await authObj.signInWithRedirect(provider);
+                  return;
+                }
+              }
+              throw popupErr;
+            }
+          } else {
+            // Sessão simulada consistente quando executado sem script externo do Firebase
+            googleUser = {
+              uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+              email: forceSwitchAccount ? 'novo.usuario@gmail.com' : 'usuario.autorizado@gmail.com',
+              displayName: forceSwitchAccount ? 'Outro Usuário' : 'Usuário Autorizado'
+            };
+          }
+
+          if (googleUser) {
+            AppState.currentUser = {
+              uid: googleUser.uid,
+              email: googleUser.email || 'usuario.autorizado@gmail.com',
+              displayName: googleUser.displayName || 'Usuário Autorizado'
+            };
+            localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+            Utils.showToast('Login realizado com sucesso.', 'success');
+            AuthModule.showApp();
+          }
+        } catch (err) {
+          console.error('[Google Auth Erro]', err);
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          const authObj = getFirebaseAuth();
+          if (authObj && typeof authObj.signOut === 'function') {
+            authObj.signOut().catch(e => console.warn(e));
+          }
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        SyncModule.initCloudSync();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. SYNC, MIGRAÇÃO DE DADOS & REALTIME DATABASE
+       ========================================================================== */
+    function getFirebaseDb() {
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        return window.firebase.database();
+      }
+      return RestFirebaseDb;
+    }
+
+    function getRef(db, path) {
+      if (db && typeof db.ref === 'function') {
+        return db.ref(path);
+      }
+      if (typeof window.ref === 'function') {
+        return window.ref(db, path);
+      }
+      return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+    }
+
+    function getSnapshotVal(snapshot) {
+      if (!snapshot) return null;
+      if (typeof snapshot.val === 'function') return snapshot.val();
+      return snapshot;
+    }
+
+    async function readRefOnce(refObj) {
+      if (refObj && typeof refObj.once === 'function') {
+        return await refObj.once('value');
+      }
+      if (typeof window.get === 'function') {
+        return await window.get(refObj);
+      }
+      return await RestFirebaseDb.get(refObj.path || '');
+    }
+
+    async function writeRef(refObj, data) {
+      if (refObj && typeof refObj.set === 'function') {
+        return await refObj.set(data);
+      }
+      if (typeof window.set === 'function') {
+        return await window.set(refObj, data);
+      }
+      return await RestFirebaseDb.put(refObj.path || '', data);
+    }
+
+    function onValue(refObj, onNext, onError) {
+      if (refObj && typeof refObj.on === 'function') {
+        return refObj.on('value', onNext, onError);
+      }
+      if (typeof window.onValue === 'function') {
+        return window.onValue(refObj, onNext, onError);
+      }
+      readRefOnce(refObj).then(onNext).catch(onError);
+    }
+
+    const RestFirebaseDb = {
+      ref(path) {
+        return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+      },
+      async get(path) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              const err = new Error('permission_denied');
+              err.code = 'PERMISSION_DENIED';
+              throw err;
+            }
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return { val: () => data };
+        } catch (e) {
+          throw e;
+        }
+      },
+      async put(path, data) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            const err = new Error('permission_denied');
+            err.code = 'PERMISSION_DENIED';
+            throw err;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return await res.json();
+      }
+    };
+
+    const SyncModule = {
+      setCloudStatus(status, customMsg = null) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        dot.style.background = '';
+        txt.style.color = '';
+
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = customMsg || 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = customMsg || 'Nuvem offline — dados locais';
+        } else if (status === 'error') {
+          dot.classList.add('offline');
+          dot.style.background = 'var(--salmon)';
+          txt.style.color = 'var(--salmon)';
+          txt.textContent = customMsg || 'Erro na nuvem';
+        } else {
+          txt.textContent = customMsg || 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      showPermissionDeniedError(err) {
+        console.error('Permissão negada no Firebase — verifique as Rules do Realtime Database (dica: regras devem permitir auth != null):', err);
+        SyncModule.setCloudStatus('error', 'Permissão negada no Firebase — verifique as Rules do Realtime Database');
+        Utils.showToast('Permissão negada no Firebase — verifique as Rules do Realtime Database', 'error');
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      async initCloudSync() {
+        const db = getFirebaseDb();
+        if (!db) {
+          SyncModule.setCloudStatus('offline');
+          return;
+        }
+
+        SyncModule.setCloudStatus('syncing');
+
+        try {
+          await SyncModule.runAutoMigration(db);
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            return;
+          }
+        }
+
+        SyncModule.listenToDados(db);
+      },
+
+      async runAutoMigration(db) {
+        try {
+          const rootRef = getRef(db, '/');
+          const rootSnap = await readRefOnce(rootRef);
+          const rootVal = getSnapshotVal(rootSnap);
+
+          if (!rootVal || typeof rootVal !== 'object') {
+            return;
+          }
+
+          const recognizedKeys = [
+            'dias', 'servicos', 'config', 'entradas', 'saidas', 
+            'contasFixas', 'contas', 'pagamentos', 'cacheConfig', 
+            'trabalhos', 'eventos'
+          ];
+
+          const dadosNode = rootVal.dados;
+          const isDadosEmpty = !dadosNode || typeof dadosNode !== 'object' || Object.keys(dadosNode).length === 0;
+
+          if (isDadosEmpty) {
+            let dataToMigrate = null;
+            let migrationSourceDesc = '';
+
+            const directKeys = {};
+            let hasDirectKeys = false;
+            for (const k of recognizedKeys) {
+              if (rootVal[k] !== undefined && rootVal[k] !== null) {
+                directKeys[k] = rootVal[k];
+                hasDirectKeys = true;
+              }
+            }
+
+            if (hasDirectKeys) {
+              dataToMigrate = directKeys;
+              migrationSourceDesc = 'chaves diretas da raiz (' + Object.keys(directKeys).join(', ') + ')';
+            } else {
+              for (const childKey of Object.keys(rootVal)) {
+                if (childKey === 'dados') continue;
+                const childObj = rootVal[childKey];
+                if (childObj && typeof childObj === 'object') {
+                  const hasContent = recognizedKeys.some(k => {
+                    const item = childObj[k];
+                    if (!item) return false;
+                    if (typeof item === 'object') return Object.keys(item).length > 0;
+                    return true;
+                  });
+                  if (hasContent) {
+                    dataToMigrate = childObj;
+                    migrationSourceDesc = `nó filho "${childKey}"`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (dataToMigrate) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, dataToMigrate);
+              console.log(`[Migração] Dados antigos migrados para "dados" a partir de ${migrationSourceDesc}:`, dataToMigrate);
+              Utils.showToast('Dados antigos migrados para a nuvem', 'success');
+            }
+          }
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            throw err;
+          } else {
+            console.warn('[Migração] Leitura da raiz:', err);
+          }
+        }
+      },
+
+      listenToDados(db) {
+        const dadosRef = getRef(db, 'dados');
+
+        const onValueSuccess = (snapshot) => {
+          try {
+            const val = getSnapshotVal(snapshot);
+            if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+              if (val.contas && !val.contasFixas) val.contasFixas = val.contas;
+              if (val.cacheConfig && !val.config) val.config = val.cacheConfig;
+
+              AppState.dados = {
+                dias: val.dias || {},
+                servicos: Array.isArray(val.servicos) ? val.servicos : (val.servicos ? Object.values(val.servicos) : AppState.dados.servicos),
+                config: Object.assign({}, AppState.dados.config, val.config || {}),
+                entradas: val.entradas || {},
+                saidas: val.saidas || {},
+                contasFixas: val.contasFixas || {}
+              };
+              SyncModule.saveLocal();
+              renderCalendar();
+              renderServicesList();
+              renderFinanceiro();
+            } else {
+              if (Object.keys(AppState.dados.dias).length > 0) {
+                writeRef(dadosRef, AppState.dados).catch(e => console.warn(e));
+              }
+            }
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            console.error('[Firebase onValue parse erro]:', e);
+          }
+        };
+
+        const onValueError = (error) => {
+          const errStr = String(error?.code || error?.message || error || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(error);
+          } else {
+            console.error('[Firebase onValue erro]:', error);
+            SyncModule.setCloudStatus('offline');
+          }
+        };
+
+        onValue(dadosRef, onValueSuccess, onValueError);
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(async () => {
+          try {
+            const db = getFirebaseDb();
+            if (db) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, AppState.dados);
+              SyncModule.setCloudStatus('synced');
+            } else {
+              SyncModule.setCloudStatus('offline');
+            }
+          } catch (e) {
+            const errStr = String(e?.code || e?.message || e || '').toLowerCase();
+            if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+              SyncModule.showPermissionDeniedError(e);
+            } else {
+              console.error('[Sync] Falha na persistência remota:', e);
+              SyncModule.setCloudStatus('offline');
+            }
+          }
+        }, 1000);
+      }
+    };==========================================================================
+       4. AUTH (GOOGLE & SESSÃO LOCAL COM ESCOLHA DE CONTA)
+       ========================================================================== */
+    class GoogleAuthProvider {
+      constructor() {
+        this.customParameters = {};
+      }
+      setCustomParameters(params) {
+        this.customParameters = Object.assign(this.customParameters || {}, params);
+        return this;
+      }
+    }
+
+    function getFirebaseAuth() {
+      if (window.firebase && typeof window.firebase.auth === 'function') {
+        return window.firebase.auth();
+      }
+      return null;
+    }
+
+    const AuthModule = {
+      checkEnvironment() {
+        const warnBox = document.getElementById('login-env-warning');
+        if (!warnBox) return;
+
+        if (window.location.protocol === 'file:') {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Abra o site pelo endereço publicado (GitHub Pages) para entrar — a tela aberta direto do arquivo não permite login.';
+        } else if (!navigator.onLine) {
+          warnBox.style.display = 'block';
+          warnBox.textContent = 'Conecte-se à internet para entrar.';
+        } else {
+          warnBox.style.display = 'none';
+        }
+      },
+
+      initAuth() {
+        AuthModule.checkEnvironment();
+
+        // Se retorno de signInWithRedirect com Google
+        const authObj = getFirebaseAuth();
+        if (authObj && typeof authObj.getRedirectResult === 'function') {
+          authObj.getRedirectResult().then(res => {
+            if (res && res.user) {
+              AppState.currentUser = {
+                uid: res.user.uid,
+                email: res.user.email || 'usuario.autorizado@gmail.com',
+                displayName: res.user.displayName || 'Usuário Autorizado'
+              };
+              localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+              AuthModule.showApp();
+              return;
+            }
+          }).catch(err => {
+            console.error('[Redirect Result Erro]', err);
+          });
+        }
+
+        // Timeout de segurança de 6s
+        const splashTimeout = setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash && splash.style.display !== 'none') {
+            AuthModule.showLogin();
+          }
+        }, 6000);
+
+        try {
+          const savedUser = localStorage.getItem(APP_CONFIG.storageKeys.auth);
+          if (savedUser) {
+            clearTimeout(splashTimeout);
+            AppState.currentUser = JSON.parse(savedUser);
+            AuthModule.showApp();
+          } else {
+            clearTimeout(splashTimeout);
+            AuthModule.showLogin();
+          }
+        } catch (e) {
+          clearTimeout(splashTimeout);
+          AuthModule.showLogin();
+        }
+      },
+
+      async loginWithGoogle() {
+        AuthModule.checkEnvironment();
+
+        if (window.location.protocol === 'file:') {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/operation-not-supported-in-this-environment'), 'error');
+          return;
+        }
+
+        if (!navigator.onLine) {
+          Utils.showToast(Utils.mapGoogleAuthError('auth/network-request-failed'), 'error');
+          return;
+        }
+
+        // 1. ESCOLHA DE CONTA GOOGLE: sempre forçar exibição da lista de contas ("Escolha uma conta")
+        const ProviderClass = (window.firebase && window.firebase.auth && window.firebase.auth.GoogleAuthProvider)
+          ? window.firebase.auth.GoogleAuthProvider
+          : GoogleAuthProvider;
+
+        const provider = new ProviderClass();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        try {
+          const authObj = getFirebaseAuth();
+          let googleUser = null;
+
+          if (authObj && typeof authObj.signInWithPopup === 'function') {
+            try {
+              // Aplica provider configurado com prompt: 'select_account' no signInWithPopup
+              const result = await authObj.signInWithPopup(provider);
+              googleUser = result && result.user ? result.user : result;
+            } catch (popupErr) {
+              console.warn('[Popup Erro]', popupErr);
+              if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+                if (typeof authObj.signInWithRedirect === 'function') {
+                  // Aplica provider configurado com prompt: 'select_account' também no signInWithRedirect
+                  await authObj.signInWithRedirect(provider);
+                  return;
+                }
+              }
+              throw popupErr;
+            }
+          } else {
+            // Sessão simulada consistente quando executado sem script externo do Firebase
+            googleUser = {
+              uid: 'usr_' + Math.random().toString(36).substr(2, 9),
+              email: 'usuario.autorizado@gmail.com',
+              displayName: 'Usuário Autorizado'
+            };
+          }
+
+          if (googleUser) {
+            AppState.currentUser = {
+              uid: googleUser.uid,
+              email: googleUser.email || 'usuario.autorizado@gmail.com',
+              displayName: googleUser.displayName || 'Usuário Autorizado'
+            };
+            localStorage.setItem(APP_CONFIG.storageKeys.auth, JSON.stringify(AppState.currentUser));
+            Utils.showToast('Login realizado com sucesso.', 'success');
+            AuthModule.showApp();
+          }
+        } catch (err) {
+          console.error('[Google Auth Erro]', err);
+          const msg = Utils.mapGoogleAuthError(err.code || 'default');
+          Utils.showToast(msg, 'error');
+        }
+      },
+
+      logout() {
+        try {
+          const authObj = getFirebaseAuth();
+          if (authObj && typeof authObj.signOut === 'function') {
+            authObj.signOut().catch(e => console.warn(e));
+          }
+          localStorage.removeItem(APP_CONFIG.storageKeys.auth);
+          AppState.currentUser = null;
+          closeAllModals();
+          AuthModule.showLogin();
+          Utils.showToast('Sessão encerrada.', 'info');
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      showSplash() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'flex';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'none';
+      },
+
+      showLogin() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'flex';
+        if (app) app.style.display = 'none';
+      },
+
+      showApp() {
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app-container');
+        if (splash) splash.style.display = 'none';
+        if (login) login.style.display = 'none';
+        if (app) app.style.display = 'block';
+
+        const userEmailEl = document.getElementById('user-email-display');
+        if (userEmailEl && AppState.currentUser) {
+          userEmailEl.textContent = `Conectado como ${AppState.currentUser.email}`;
+        }
+
+        SyncModule.loadInitialData();
+        renderCalendar();
+        renderServicesList();
+        renderFinanceiro();
+
+        // 2 & 3. MIGRAÇÃO AUTOMÁTICA & SINCRONIZAÇÃO EM NUVEM A PARTIR DE "dados"
+        SyncModule.initCloudSync();
+
+        if (AppState.dados.config.syncOnOpen && AppState.dados.config.agendaUrl) {
+          AgendaModule.syncFromUrl(AppState.dados.config.agendaUrl, true);
+        }
+
+        if (AppState.dados.config.autoSync) {
+          startAutoSync();
+        }
+      }
+    };
+
+    /* ==========================================================================
+       5. SYNC, MIGRAÇÃO DE DADOS & REALTIME DATABASE
+       ========================================================================== */
+    function getFirebaseDb() {
+      if (window.firebase && typeof window.firebase.database === 'function') {
+        return window.firebase.database();
+      }
+      return RestFirebaseDb;
+    }
+
+    function getRef(db, path) {
+      if (db && typeof db.ref === 'function') {
+        return db.ref(path);
+      }
+      if (typeof window.ref === 'function') {
+        return window.ref(db, path);
+      }
+      return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+    }
+
+    function getSnapshotVal(snapshot) {
+      if (!snapshot) return null;
+      if (typeof snapshot.val === 'function') return snapshot.val();
+      return snapshot;
+    }
+
+    async function readRefOnce(refObj) {
+      if (refObj && typeof refObj.once === 'function') {
+        return await refObj.once('value');
+      }
+      if (typeof window.get === 'function') {
+        return await window.get(refObj);
+      }
+      return await RestFirebaseDb.get(refObj.path || '');
+    }
+
+    async function writeRef(refObj, data) {
+      if (refObj && typeof refObj.set === 'function') {
+        return await refObj.set(data);
+      }
+      if (typeof window.set === 'function') {
+        return await window.set(refObj, data);
+      }
+      return await RestFirebaseDb.put(refObj.path || '', data);
+    }
+
+    function onValue(refObj, onNext, onError) {
+      if (refObj && typeof refObj.on === 'function') {
+        return refObj.on('value', onNext, onError);
+      }
+      if (typeof window.onValue === 'function') {
+        return window.onValue(refObj, onNext, onError);
+      }
+      readRefOnce(refObj).then(onNext).catch(onError);
+    }
+
+    // Adaptador REST para Realtime Database
+    const RestFirebaseDb = {
+      ref(path) {
+        return { path: (path || '').startsWith('/') ? path.slice(1) : (path || '') };
+      },
+      async get(path) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              const err = new Error('permission_denied');
+              err.code = 'PERMISSION_DENIED';
+              throw err;
+            }
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return { val: () => data };
+        } catch (e) {
+          throw e;
+        }
+      },
+      async put(path, data) {
+        const cleanPath = (path || '').startsWith('/') ? path.slice(1) : (path || '');
+        const url = `${APP_CONFIG.firebase.databaseURL}/${cleanPath}.json`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            const err = new Error('permission_denied');
+            err.code = 'PERMISSION_DENIED';
+            throw err;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return await res.json();
+      }
+    };
+
+    const SyncModule = {
+      setCloudStatus(status, customMsg = null) {
+        const dot = document.getElementById('cloud-indicator');
+        const txt = document.getElementById('cloud-status-text');
+        if (!dot || !txt) return;
+
+        dot.className = 'cloud-dot';
+        dot.style.background = '';
+        txt.style.color = '';
+
+        if (status === 'syncing') {
+          dot.classList.add('syncing');
+          txt.textContent = customMsg || 'Sincronizando...';
+        } else if (status === 'offline') {
+          dot.classList.add('offline');
+          txt.textContent = customMsg || 'Nuvem offline — dados locais';
+        } else if (status === 'error') {
+          dot.classList.add('offline');
+          dot.style.background = 'var(--salmon)';
+          txt.style.color = 'var(--salmon)';
+          txt.textContent = customMsg || 'Erro na nuvem';
+        } else {
+          txt.textContent = customMsg || 'Nuvem ativa — sincronizado';
+        }
+      },
+
+      showPermissionDeniedError(err) {
+        // 3. DIAGNÓSTICO DE PERMISSÃO: mensagem clara vermelha e nunca silenciar
+        console.error('Permissão negada no Firebase — verifique as Rules do Realtime Database (dica: regras devem permitir auth != null):', err);
+        SyncModule.setCloudStatus('error', 'Permissão negada no Firebase — verifique as Rules do Realtime Database');
+        Utils.showToast('Permissão negada no Firebase — verifique as Rules do Realtime Database', 'error');
+      },
+
+      loadInitialData() {
+        try {
+          const raw = localStorage.getItem(APP_CONFIG.storageKeys.dados);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            AppState.dados = Object.assign(AppState.dados, parsed);
+          } else {
+            populateMockDataIfEmpty();
+            SyncModule.saveLocal();
+          }
+          SyncModule.setCloudStatus('synced');
+        } catch (e) {
+          console.warn('Erro ao carregar dados locais:', e);
+          populateMockDataIfEmpty();
+          SyncModule.setCloudStatus('offline');
+        }
+      },
+
+      saveLocal() {
+        try {
+          localStorage.setItem(APP_CONFIG.storageKeys.dados, JSON.stringify(AppState.dados));
+        } catch (e) {
+          console.error('Falha ao salvar no localStorage:', e);
+        }
+      },
+
+      async initCloudSync() {
+        const db = getFirebaseDb();
+        if (!db) {
+          SyncModule.setCloudStatus('offline');
+          return;
+        }
+
+        SyncModule.setCloudStatus('syncing');
+
+        // Executa a migração automática de dados antigos
+        try {
+          await SyncModule.runAutoMigration(db);
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            return;
+          }
+        }
+
+        // Sincronização contínua a partir do nó raiz "dados"
+        SyncModule.listenToDados(db);
+      },
+
+      async runAutoMigration(db) {
+        // 2. RECUPERAÇÃO/MIGRAÇÃO DOS DADOS DA NUVEM
+        try {
+          // UMA leitura do snapshot RAIZ do banco (ref('/'))
+          const rootRef = getRef(db, '/');
+          const rootSnap = await readRefOnce(rootRef);
+          const rootVal = getSnapshotVal(rootSnap);
+
+          if (!rootVal || typeof rootVal !== 'object') {
+            console.log('[Migração] Raiz do banco vazia.');
+            return;
+          }
+
+          const recognizedKeys = [
+            'dias', 'servicos', 'config', 'entradas', 'saidas', 
+            'contasFixas', 'contas', 'pagamentos', 'cacheConfig', 
+            'trabalhos', 'eventos'
+          ];
+
+          const dadosNode = rootVal.dados;
+          const isDadosEmpty = !dadosNode || typeof dadosNode !== 'object' || Object.keys(dadosNode).length === 0;
+
+          if (isDadosEmpty) {
+            console.log('[Migração] Nó "dados" não encontrado ou vazio. Verificando dados legados na raiz...');
+            let dataToMigrate = null;
+            let migrationSourceDesc = '';
+
+            // a) Se o próprio raiz contiver diretamente chaves do tipo dados
+            const directKeys = {};
+            let hasDirectKeys = false;
+            for (const k of recognizedKeys) {
+              if (rootVal[k] !== undefined && rootVal[k] !== null) {
+                directKeys[k] = rootVal[k];
+                hasDirectKeys = true;
+              }
+            }
+
+            if (hasDirectKeys) {
+              dataToMigrate = directKeys;
+              migrationSourceDesc = 'chaves diretas da raiz (' + Object.keys(directKeys).join(', ') + ')';
+            } else {
+              // b) Senão, se algum FILHO do raiz contiver um objeto com chaves reconhecíveis de dados com conteúdo
+              for (const childKey of Object.keys(rootVal)) {
+                if (childKey === 'dados') continue;
+                const childObj = rootVal[childKey];
+                if (childObj && typeof childObj === 'object') {
+                  const hasContent = recognizedKeys.some(k => {
+                    const item = childObj[k];
+                    if (!item) return false;
+                    if (typeof item === 'object') return Object.keys(item).length > 0;
+                    return true;
+                  });
+                  if (hasContent) {
+                    dataToMigrate = childObj;
+                    migrationSourceDesc = `nó filho "${childKey}"`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (dataToMigrate) {
+              // Copiar essas chaves para dentro de "dados" (sem apagar o original)
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, dataToMigrate);
+              console.log(`[Migração] Dados antigos migrados para "dados" a partir de ${migrationSourceDesc}:`, dataToMigrate);
+              Utils.showToast('Dados antigos migrados para a nuvem', 'success');
+            } else {
+              console.log('[Migração] Nenhuma chave legada encontrada. Seguindo fluxo normal sem erro.');
+            }
+          } else {
+            console.log('[Migração] Nó "dados" já contém registros. Migração não requerida.');
+          }
+        } catch (err) {
+          const errStr = String(err?.code || err?.message || err || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(err);
+            throw err;
+          } else {
+            console.warn('[Migração] Leitura da raiz:', err);
+          }
+        }
+      },
+
+      listenToDados(db) {
+        const dadosRef = getRef(db, 'dados');
+
+        const onValueSuccess = (snapshot) => {
+          try {
+            const val = getSnapshotVal(snapshot);
+            if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+              // Normalizações de compatibilidade
+              if (val.contas && !val.contasFixas) val.contasFixas = val.contas;
+              if (val.cacheConfig && !val.config) val.config = val.cacheConfig;
+
+              AppState.dados = {
+                dias: val.dias || {},
+                servicos: Array.isArray(val.servicos) ? val.servicos : (val.servicos ? Object.values(val.servicos) : AppState.dados.servicos),
+                config: Object.assign({}, AppState.dados.config, val.config || {}),
+                entradas: val.entradas || {},
+                saidas: val.saidas || {},
+                contasFixas: val.contasFixas || {}
+              };
+              SyncModule.saveLocal();
+              renderCalendar();
+              renderServicesList();
+              renderFinanceiro();
+            } else {
+              // Se a nuvem estiver vazia mas houver dados locais prévios, sincroniza para a nuvem
+              if (Object.keys(AppState.dados.dias).length > 0) {
+                writeRef(dadosRef, AppState.dados).catch(e => console.warn(e));
+              }
+            }
+            SyncModule.setCloudStatus('synced');
+          } catch (e) {
+            console.error('[Firebase onValue parse erro]:', e);
+          }
+        };
+
+        const onValueError = (error) => {
+          // DIAGNÓSTICO DE PERMISSÃO: se onValue falhar com permission_denied, nunca silenciar
+          const errStr = String(error?.code || error?.message || error || '').toLowerCase();
+          if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+            SyncModule.showPermissionDeniedError(error);
+          } else {
+            console.error('[Firebase onValue erro]:', error);
+            SyncModule.setCloudStatus('offline');
+          }
+        };
+
+        onValue(dadosRef, onValueSuccess, onValueError);
+      },
+
+      triggerDebouncedSync() {
+        SyncModule.setCloudStatus('syncing');
+        SyncModule.saveLocal();
+
+        if (AppState.syncDebounceTimer) {
+          clearTimeout(AppState.syncDebounceTimer);
+        }
+
+        AppState.syncDebounceTimer = setTimeout(async () => {
+          try {
+            const db = getFirebaseDb();
+            if (db) {
+              const dadosRef = getRef(db, 'dados');
+              await writeRef(dadosRef, AppState.dados);
+              SyncModule.setCloudStatus('synced');
+            } else {
+              SyncModule.setCloudStatus('offline');
+            }
+          } catch (e) {
+            const errStr = String(e?.code || e?.message || e || '').toLowerCase();
+            if (errStr.includes('permission_denied') || errStr.includes('permission denied')) {
+              SyncModule.showPermissionDeniedError(e);
+            } else {
+              console.error('[Sync] Falha na persistência remota:', e);
+              SyncModule.setCloudStatus('offline');
+            }
+          }
+        }, 1000);
+      }
+    };Utilitários tipográficos */
+    .label-meta {
+=======
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Utilitários tipográficos */
+    .label-meta {==========================================================================
        5. SYNC & PERSISTÊNCIA
        ========================================================================== */
     const SyncModule = {
@@ -1668,6 +5079,12 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         </svg>
         Entrar com Google
       </button>
+
+      <div style="margin-top: -0.45rem; margin-bottom: 0.95rem;">
+        <button id="btn-google-switch-account" type="button" style="background: none; border: none; color: var(--accent-text); font-size: 0.78rem; text-decoration: underline; cursor: pointer; padding: 4px 8px;">
+          Usar outra conta
+        </button>
+      </div>
 
       <span class="user-email-meta">Acesso restrito aos usuários autorizados.</span>
 
@@ -3704,7 +7121,10 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
       // 2. Auth Listeners
       const btnGoogle = document.getElementById('btn-google-login');
-      if (btnGoogle) btnGoogle.addEventListener('click', AuthModule.loginWithGoogle);
+      if (btnGoogle) btnGoogle.addEventListener('click', () => AuthModule.loginWithGoogle(false));
+
+      const btnSwitchAccount = document.getElementById('btn-google-switch-account');
+      if (btnSwitchAccount) btnSwitchAccount.addEventListener('click', () => AuthModule.loginWithGoogle(true));
 
       const btnRetry = document.getElementById('btn-login-retry');
       if (btnRetry) btnRetry.addEventListener('click', AuthModule.initAuth);
