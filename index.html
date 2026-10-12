@@ -186,15 +186,110 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
     }
 
     /* Layout Geral com Sidebar Desktop e Mobile Bottom Nav */
+    /* Splash Screen (Carregamento Inicial) */
+    .splash-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #181818;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+    }
+
+    .splash-container.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      max-width: 320px;
+      width: 100%;
+    }
+
+    .splash-logo {
+      width: 68px;
+      height: 68px;
+      margin-bottom: 22px;
+      animation: splashPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes splashPulse {
+      0% { transform: scale(1); opacity: 0.88; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.88; }
+    }
+
+    .splash-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #A0A0A0;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .splash-timeout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: tabFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .splash-timeout-msg {
+      color: #A0A0A0;
+      font-size: 13px;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .splash-timeout-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .splash-link-btn {
+      background: transparent;
+      border: none;
+      color: #8C8C8C;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 4px;
+      transition: color var(--transition-fast);
+    }
+
+    .splash-link-btn:hover {
+      color: var(--text);
+    }
+
     /* Tela de Login */
     .login-container {
-      display: flex;
+      display: none; /* Só visível após checar auth sem sessão */
+      opacity: 0;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       width: 100%;
       background-color: var(--bg);
       padding: 20px;
+      transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .login-card {
@@ -1440,8 +1535,34 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
   </style>
 </head>
 <body>
+  <!-- ==================== TELA DE CARREGAMENTO (SPLASH) ==================== -->
+  <div id="splash-screen" class="splash-container" aria-live="polite">
+    <div class="splash-content">
+      <div class="splash-logo" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="68" height="68">
+          <rect width="64" height="64" rx="14" fill="#1E1E1E"/>
+          <path d="M43 21C39 16.5 32.5 15 26.5 18.5C18.5 23 17 35.5 23.5 43C29 49 38.5 48.5 43 43" fill="none" stroke="#C49275" stroke-width="6" stroke-linecap="round"/>
+          <line x1="26" y1="32" x2="38" y2="32" stroke="#7D9B86" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div id="splash-loading-indicator" class="splash-status">
+        <span class="spinner" style="width: 15px; height: 15px; border-width: 2px;"></span>
+        <span>Carregando...</span>
+      </div>
+
+      <div id="splash-timeout-box" class="splash-timeout" style="display: none;">
+        <p class="splash-timeout-msg">Não consegui verificar sua sessão. Verifique a internet.</p>
+        <div class="splash-timeout-actions">
+          <button id="btn-splash-retry" class="clean-btn primary sm" type="button">Tentar novamente</button>
+          <button id="btn-splash-force-login" class="splash-link-btn" type="button">Entrar com outra conta</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== TELA DE LOGIN REAL (FIREBASE AUTH) ==================== -->
-  <div id="login-screen" class="login-container">
+  <div id="login-screen" class="login-container" style="display: none;">
     <div class="login-card">
       <div class="login-header">
         <div class="login-logo" aria-hidden="true">
@@ -6084,23 +6205,96 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         }
       }
 
-      function showAppLayout() {
-        const loginScreen = document.getElementById('login-screen');
-        const appRoot = document.getElementById('app-root');
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (appRoot) appRoot.classList.add('authenticated');
+      function dismissSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
       }
 
-      function hideAppLayout() {
+      function showLoginScreen() {
         const loginScreen = document.getElementById('login-screen');
         const appRoot = document.getElementById('app-root');
         if (appRoot) appRoot.classList.remove('authenticated');
+
+        dismissSplashScreen();
+
         if (loginScreen) {
           loginScreen.style.display = 'flex';
+          requestAnimationFrame(() => {
+            loginScreen.style.opacity = '1';
+          });
         }
         const pwdInp = document.getElementById('login-password');
         if (pwdInp) pwdInp.value = '';
         hideLoginError();
+      }
+
+      function showAppLayout() {
+        const loginScreen = document.getElementById('login-screen');
+        const appRoot = document.getElementById('app-root');
+        if (loginScreen) {
+          loginScreen.style.opacity = '0';
+          loginScreen.style.display = 'none';
+        }
+        if (appRoot) appRoot.classList.add('authenticated');
+
+        dismissSplashScreen();
+      }
+
+      function hideAppLayout() {
+        showLoginScreen();
+      }
+
+      let authTimeoutTimer = null;
+      let authCheckCompleted = false;
+
+      function clearAuthTimeout() {
+        if (authTimeoutTimer) {
+          clearTimeout(authTimeoutTimer);
+          authTimeoutTimer = null;
+        }
+      }
+
+      function startAuthTimeout() {
+        clearAuthTimeout();
+        authTimeoutTimer = setTimeout(() => {
+          if (!authCheckCompleted) {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
+        }, 8000);
+      }
+
+      function initSplashListeners() {
+        const btnRetry = document.getElementById('btn-splash-retry');
+        const btnForceLogin = document.getElementById('btn-splash-force-login');
+
+        if (btnRetry) {
+          btnRetry.addEventListener('click', () => {
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (timeoutBox) timeoutBox.style.display = 'none';
+            if (loadIndicator) loadIndicator.style.display = 'flex';
+
+            authCheckCompleted = false;
+            startAuthTimeout();
+            initAuthService();
+          });
+        }
+
+        if (btnForceLogin) {
+          btnForceLogin.addEventListener('click', () => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+            showLoginScreen();
+          });
+        }
       }
 
       function showLogoutModal() {
@@ -6147,6 +6341,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
       }
 
       async function initAuthService() {
+        startAuthTimeout();
         try {
           const firebase = await loadFirebaseSdk();
 
@@ -6173,14 +6368,17 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
           // Listener de estado de autenticação central
           auth.onAuthStateChanged((user) => {
+            clearAuthTimeout();
+            authCheckCompleted = true;
+
             if (user) {
-              // USUÁRIO AUTENTICADO:
+              // USUÁRIO AUTENTICADO: transição suave do splash direto para o app
               updateUserDisplay(user);
               showAppLayout();
               // Iniciar conexão com o Realtime Database autenticado e carregar dados
               initFirebaseDatabaseConnected(false);
             } else {
-              // NENHUM USUÁRIO:
+              // NENHUM USUÁRIO: transição suave do splash para login
               updateUserDisplay(null);
               // Desconectar o banco e ocultar o app
               if (fbDatabaseRef && fbIsListening) {
@@ -6188,7 +6386,7 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
                 fbIsListening = false;
               }
               fbDatabaseRef = null;
-              hideAppLayout();
+              showLoginScreen();
             }
           });
 
@@ -6254,7 +6452,13 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
 
         } catch (err) {
           console.error('Erro ao inicializar Firebase Auth:', err);
-          hideAppLayout();
+          if (!authCheckCompleted) {
+            clearAuthTimeout();
+            const loadIndicator = document.getElementById('splash-loading-indicator');
+            const timeoutBox = document.getElementById('splash-timeout-box');
+            if (loadIndicator) loadIndicator.style.display = 'none';
+            if (timeoutBox) timeoutBox.style.display = 'flex';
+          }
         }
       }
 
@@ -6608,12 +6812,12 @@ table.shell-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 
         // 5. Renderizar todas as telas
         try { renderAll(); } catch(err) { console.error('Erro renderAll:', err); }
 
-        // 5.1 Inicializar autenticação real (que abrirá o app e conectará a nuvem após login)
+        // 5.1 Inicializar listeners do splash e autenticação real
+        try { initSplashListeners(); } catch(err) { console.error('Erro initSplashListeners:', err); }
         try {
           initAuthService();
         } catch(err) {
           console.warn('Erro ao inicializar serviço de autenticação:', err);
-          hideAppLayout();
         }
 
         // 6. Auto-sincronização ao abrir se houver link salvo
