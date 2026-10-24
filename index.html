@@ -351,6 +351,24 @@
       .out-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; }
     }
 
+    /* ================= LOGIN ================= */
+    .gate { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .gate-card { width: 100%; max-width: 380px; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 32px 26px 26px; box-shadow: var(--shadow-lg); }
+    .gate-card .brand-mark { width: 52px; height: 52px; border-radius: 15px; margin: 0 auto 18px; }
+    .gate-card h1 { margin: 0 0 6px; font-size: 22px; font-weight: 750; letter-spacing: -0.02em; }
+    .gate-card p { margin: 0 0 22px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .gate-card .btn { width: 100%; height: 46px; font-size: 14.5px; }
+    .gate-card .btn + .btn { margin-top: 10px; }
+    .gate-msg { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 1px; }
+    .gate-foot { margin-top: 18px; font-size: 12px; color: var(--dim); }
+    .g-logo { width: 18px; height: 18px; }
+    .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line-2); border-top-color: var(--primary); animation: spin .8s linear infinite; margin: 0 auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    body.gated { overflow: hidden; }
+    .acct { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--primary-soft); color: var(--primary-text); display: grid; place-items: center; font-weight: 700; }
+    .who { color: var(--muted); }
+
     /* ================= SETTINGS ================= */
     .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
     .settings-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
@@ -745,13 +763,21 @@
         </div>
 
         <div class="settings-col">
+          <!-- Conta -->
+          <div class="card">
+            <div class="card-head" style="margin-bottom:12px;">
+              <h2><span data-icon="user"></span>Conta</h2>
+            </div>
+            <div class="acct" id="acct"></div>
+          </div>
+
           <!-- Nuvem -->
           <div class="card">
             <div class="card-head">
               <h2><span data-icon="cloud"></span>Nuvem</h2>
               <span class="status-text" id="cl-status"></span>
             </div>
-            <p class="desc">Seus dados ficam salvos no Firebase e aparecem iguais em todos os aparelhos.</p>
+            <p class="desc">Seus dados ficam salvos no Firebase e aparecem iguais em todos os aparelhos da família.</p>
             <dl class="kv">
               <dt>Projeto</dt><dd id="cl-project" class="mono"></dd>
               <dt>Última gravação</dt><dd id="cl-last"></dd>
@@ -855,6 +881,27 @@
     </div>
   </div>
 
+  <div class="gate" id="gate" hidden>
+    <div class="gate-card" role="dialog" aria-labelledby="gate-title">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
+          <path d="M43 21C39 16.5 32.5 15 26.5 18.5C18.5 23 17 35.5 23.5 43C29 49 38.5 48.5 43 43" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="26" y1="32" x2="38" y2="32" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <h1 id="gate-title">Entrar</h1>
+      <p id="gate-text">Use a conta Google da família para acessar o painel.</p>
+      <div class="spinner" id="gate-spinner" hidden></div>
+      <button type="button" class="btn btn-primary" id="gate-login" data-act="sign-in" hidden>
+        <svg class="g-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        Entrar com Google
+      </button>
+      <button type="button" class="btn" id="gate-switch" data-act="gate-switch" hidden>Usar outra conta</button>
+      <div class="gate-msg" id="gate-msg" aria-live="polite"></div>
+      <div class="gate-foot">Seus dados ficam protegidos: só as contas da família têm acesso.</div>
+    </div>
+  </div>
+
   <div id="toasts" aria-live="polite"></div>
 
   <script>
@@ -883,7 +930,8 @@
       THEME: 'pd_theme_v1',
       TAB: 'pd_tab_v1',
       OUTFLOWS: 'pd_outflows_v1',
-      OUT_PENDING: 'pd_outflows_pending_v1'
+      OUT_PENDING: 'pd_outflows_pending_v1',
+      USER: 'pd_user_v1'
     };
 
     // Saídas ficam num caminho próprio, gravadas item a item (o bot do WhatsApp escreve aqui também)
@@ -966,7 +1014,8 @@
       chart: '<path d="M3 3v18h18"/><path d="M8 16v-5M13 16V8M18 16v-3"/>',
       inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/>',
       cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H6"/>',
-      chat: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3Z"/>'
+      chat: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3Z"/>',
+      user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
     };
 
     /* =====================================================================
@@ -988,6 +1037,7 @@
       ignoredUids: [],
       outflows: {},
       outPending: {},
+      user: null,
       firebaseConfig: DEFAULT_FIREBASE_CONFIG,
       sectionTimestamps: {},
       month: firstOfMonth(new Date()),
@@ -1001,7 +1051,7 @@
     const cloud = {
       app: null, ref: null, connRef: null, listening: false, ready: false,
       initializing: false, dirty: new Set(), timer: null, lastWrite: null,
-      outRef: null, outLoaded: false
+      outRef: null, outLoaded: false, authUnsub: null
     };
 
     let periodicTimer = null;
@@ -1839,7 +1889,8 @@
         '<div class="date-badge"><b>' + dt.getDate() + '</b><span>' + WD[dt.getDay()] + '</span></div>' +
         '<div class="row-main"><div class="row-title">' + esc(o.description || cat.name) + '</div>' +
           '<div class="row-sub"><span class="cat-dot" style="background:' + cat.color + '"></span>' + esc(cat.name) +
-          (o.source === 'whatsapp' ? ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>' : '') + '</div></div>' +
+          (o.source === 'whatsapp' ? ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>' : '') +
+          (o.who ? ' · <span class="who">' + esc(o.who) + '</span>' : '') + '</div></div>' +
         '<div class="row-end"><div class="row-amt num neg">− ' + fmtBRL(o.value) + '</div></div></div>';
     }
 
@@ -1973,7 +2024,8 @@
         const date = $('#o-date').value;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return invalid('#o-date', 'Informe a data.');
         const cat = $('#o-cat').value;
-        const obj = Object.assign({}, o || { id: uid('out'), source: 'manual', createdAt: Date.now() });
+        const obj = Object.assign({}, o || { id: uid('out'), source: 'manual', createdAt: Date.now(), who: firstName() });
+        if (!obj.who) delete obj.who;
         obj.description = desc || catInfo(cat).name;
         obj.value = val;
         obj.date = date;
@@ -1987,7 +2039,7 @@
       Modal.open({
         type: 'outflow',
         title: o ? 'Editar saída' : 'Nova saída',
-        subtitle: o ? (o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : null) : 'Gasto do dia a dia',
+        subtitle: o ? ((o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : 'Lançada no site') + (o.who ? ' · ' + o.who : '')) : 'Gasto do dia a dia',
         body: body, footer: footer, focus: o ? null : '#o-desc',
         onMount: () => {
           const sel = $('#o-cat'), desc = $('#o-desc');
@@ -2703,15 +2755,30 @@
       if (cloud.dirty.size && state.cloudStatus !== 'offline') scheduleCloudPush();
     }
 
-    async function resetCloud() {
+    // Desliga só a parte do banco (usado ao sair da conta ou trocar de projeto)
+    function stopDb() {
       try { if (cloud.ref) cloud.ref.off(); } catch (e) {}
       try { if (cloud.connRef) cloud.connRef.off(); } catch (e) {}
       try { if (cloud.outRef) cloud.outRef.off(); } catch (e) {}
-      try { if (cloud.app) await cloud.app.delete(); } catch (e) {}
-      cloud.app = null; cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.outLoaded = false;
+      cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.outLoaded = false;
       cloud.listening = false; cloud.ready = false;
     }
 
+    async function resetCloud() {
+      stopDb();
+      try { if (cloud.authUnsub) cloud.authUnsub(); } catch (e) {}
+      cloud.authUnsub = null;
+      try { if (cloud.app) await cloud.app.delete(); } catch (e) {}
+      cloud.app = null;
+      state.user = null;
+    }
+
+    function isPermissionError(e) {
+      const t = String((e && (e.code || '')) + ' ' + (e && e.message || '')).toLowerCase();
+      return t.indexOf('permission') !== -1;
+    }
+
+    // Carrega o Firebase e acompanha o login. O banco só é aberto com uma conta Google.
     async function initCloud(showToast) {
       if (cloud.initializing) return;
       cloud.initializing = true;
@@ -2724,23 +2791,54 @@
           try { cloud.app = fb.app(name); } catch (e) { cloud.app = fb.initializeApp(state.firebaseConfig || DEFAULT_FIREBASE_CONFIG, name); }
         }
         const auth = cloud.app.auth();
-        try { if (!auth.currentUser) await auth.signInAnonymously(); } catch (e) { console.warn('Login anônimo falhou:', e); }
+        if (!cloud.authUnsub) {
+          cloud.authUnsub = auth.onAuthStateChanged(async user => {
+            // Sessões anônimas antigas não valem mais: pede login com Google
+            if (user && user.isAnonymous) { try { await auth.signOut(); } catch (e) {} return; }
+            state.user = user || null;
+            if (user) {
+              setRaw(STORAGE.USER, JSON.stringify({ email: user.email, name: user.displayName || '', photo: user.photoURL || '' }));
+            } else {
+              try { localStorage.removeItem(STORAGE.USER); } catch (e) {}
+            }
+            renderAccount();
+            if (!user) { stopDb(); state.cloudStatus = 'signedout'; updateCloudUi(); showGate('login'); return; }
+            hideGate();
+            await connectDb(showToast);
+            showToast = false;
+          });
+        }
+      } catch (e) {
+        console.warn('Nuvem indisponível:', e);
+        state.cloudStatus = 'offline';
+        updateCloudUi();
+        if (!state.user && !getRaw(STORAGE.USER)) showGate('error');
+        if (showToast) toast('Não foi possível conectar à nuvem. Os dados seguem salvos neste aparelho.', { tone: 'danger' });
+      } finally {
+        cloud.initializing = false;
+      }
+    }
+
+    async function connectDb(showToast) {
+      if (!cloud.app || !state.user) return;
+      stopDb();
+      state.cloudStatus = 'syncing';
+      updateCloudUi();
+      try {
         const db = cloud.app.database();
         cloud.ref = db.ref(CLOUD_PATH);
 
-        if (!cloud.connRef) {
-          cloud.connRef = db.ref('.info/connected');
-          cloud.connRef.on('value', snap => {
-            if (!cloud.ready) return;
-            if (snap.val()) {
-              state.cloudStatus = cloud.dirty.size ? 'syncing' : 'connected';
-              if (cloud.dirty.size) scheduleCloudPush();
-            } else {
-              state.cloudStatus = 'offline';
-            }
-            updateCloudUi();
-          });
-        }
+        cloud.connRef = db.ref('.info/connected');
+        cloud.connRef.on('value', snap => {
+          if (!cloud.ready) return;
+          if (snap.val()) {
+            state.cloudStatus = cloud.dirty.size ? 'syncing' : 'connected';
+            if (cloud.dirty.size) scheduleCloudPush();
+          } else {
+            state.cloudStatus = 'offline';
+          }
+          updateCloudUi();
+        });
 
         const snap = await Promise.race([
           cloud.ref.once('value'),
@@ -2757,32 +2855,122 @@
         });
 
         cloud.ready = true;
-        if (!cloud.listening) {
-          cloud.ref.on('value', s => {
-            try { if (applyCloud(s.val())) { renderAll(); refreshModalSafe(); } else updateCloudUi(); }
-            catch (e) { console.warn('Erro ao aplicar atualização da nuvem:', e); }
-          });
-          cloud.listening = true;
-        }
-        if (!cloud.outRef) {
-          cloud.outRef = db.ref(OUT_PATH);
-          cloud.outRef.on('value', s => {
-            try { applyOutflows(s.val()); refreshModalSafe(); } catch (e) { console.warn('Erro ao aplicar saídas:', e); }
-          }, e => console.warn('Sem acesso às saídas na nuvem:', e));
-        }
+        cloud.ref.on('value', s => {
+          try { if (applyCloud(s.val())) { renderAll(); refreshModalSafe(); } else updateCloudUi(); }
+          catch (e) { console.warn('Erro ao aplicar atualização da nuvem:', e); }
+        }, e => { if (isPermissionError(e)) denyAccess(); });
+        cloud.listening = true;
+        cloud.outRef = db.ref(OUT_PATH);
+        cloud.outRef.on('value', s => {
+          try { applyOutflows(s.val()); refreshModalSafe(); } catch (e) { console.warn('Erro ao aplicar saídas:', e); }
+        }, e => { console.warn('Sem acesso às saídas na nuvem:', e); if (isPermissionError(e)) denyAccess(); });
         flushOutflows();
         state.cloudStatus = 'connected';
         updateCloudUi();
         if (cloud.dirty.size) pushDirty();
         if (showToast) toast('Nuvem conectada');
       } catch (e) {
-        console.warn('Nuvem indisponível:', e);
+        console.warn('Falha ao abrir o banco:', e);
+        if (isPermissionError(e)) { denyAccess(); return; }
         state.cloudStatus = 'offline';
         updateCloudUi();
         if (showToast) toast('Não foi possível conectar à nuvem. Os dados seguem salvos neste aparelho.', { tone: 'danger' });
-      } finally {
-        cloud.initializing = false;
       }
+    }
+
+    // Conta Google sem permissão no banco
+    function denyAccess() {
+      stopDb();
+      state.cloudStatus = 'denied';
+      updateCloudUi();
+      showGate('denied');
+    }
+
+    async function signInGoogle() {
+      const btn = $('#gate-login');
+      if (btn) btn.disabled = true;
+      try {
+        if (!cloud.app) await initCloud(false);
+        if (!cloud.app) throw new Error('offline');
+        const provider = new window.firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const auth = cloud.app.auth();
+        try {
+          await auth.signInWithPopup(provider);
+        } catch (e) {
+          const code = e && e.code || '';
+          if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+            await auth.signInWithRedirect(provider);
+            return;
+          }
+          if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+          throw e;
+        }
+      } catch (e) {
+        console.warn('Login Google falhou:', e);
+        const msg = $('#gate-msg');
+        if (msg) msg.textContent = e && e.code === 'auth/unauthorized-domain'
+          ? 'Este endereço não está autorizado no Firebase (Authentication → Configurações → Domínios autorizados).'
+          : 'Não foi possível entrar. Verifique a internet e tente de novo.';
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function signOutGoogle() {
+      const ok = await ask({ title: 'Sair da conta?', message: 'Para ver o painel de novo neste aparelho será preciso entrar com o Google.', options: [{ label: 'Sair', value: true }] });
+      if (!ok) return;
+      try { if (cloud.app) await cloud.app.auth().signOut(); } catch (e) {}
+      try { localStorage.removeItem(STORAGE.USER); } catch (e) {}
+      state.user = null;
+      renderAccount();
+      showGate('login');
+    }
+
+    function showGate(mode) {
+      const g = $('#gate');
+      if (!g) return;
+      const u = state.user;
+      const cfg = {
+        loading: ['Conectando…', 'Verificando sua conta.', false, false],
+        login: ['Entrar', 'Use a conta Google da família para acessar o painel.', true, false],
+        denied: ['Sem acesso', 'A conta ' + (u && u.email ? u.email : '') + ' não tem permissão para este painel. Entre com outra conta Google.', false, true],
+        error: ['Sem conexão', 'Não foi possível conectar. Verifique a internet e tente de novo.', true, false]
+      }[mode] || [];
+      $('#gate-title').textContent = cfg[0];
+      $('#gate-text').textContent = cfg[1];
+      $('#gate-login').hidden = !cfg[2];
+      $('#gate-switch').hidden = !cfg[3];
+      $('#gate-spinner').hidden = mode !== 'loading';
+      $('#gate-msg').textContent = '';
+      g.hidden = false;
+      document.body.classList.add('gated');
+    }
+    function hideGate() {
+      const g = $('#gate');
+      if (g) g.hidden = true;
+      document.body.classList.remove('gated');
+    }
+
+    function currentUserInfo() {
+      if (state.user) return { email: state.user.email, name: state.user.displayName || '', photo: state.user.photoURL || '' };
+      return readJSON(STORAGE.USER, null);
+    }
+    function firstName() {
+      const u = currentUserInfo();
+      if (!u) return '';
+      const n = (u.name || u.email || '').trim().split(/[\s@]+/)[0];
+      return n ? capitalize(n) : '';
+    }
+    function renderAccount() {
+      const el = $('#acct');
+      if (!el) return;
+      const u = currentUserInfo();
+      if (!u) { el.innerHTML = '<span class="muted" style="font-size:13px;">Não conectado</span>'; return; }
+      const initial = esc((u.name || u.email || '?').trim().charAt(0).toUpperCase());
+      el.innerHTML = (u.photo ? '<img class="avatar" src="' + esc(u.photo) + '" alt="" referrerpolicy="no-referrer">' : '<span class="avatar">' + initial + '</span>') +
+        '<div class="row-main"><div class="row-title">' + esc(u.name || u.email) + '</div><div class="row-sub">' + esc(u.email || '') + '</div></div>' +
+        '<button type="button" class="btn btn-sm" data-act="sign-out">Sair</button>';
     }
 
     // Atualiza o painel do dia aberto se dados mudaram em outro aparelho (formulários não são tocados)
@@ -2793,7 +2981,9 @@
       const map = {
         connected: { dot: 'ok', pill: 'Salvo', text: 'Conectada' },
         syncing: { dot: 'busy', pill: 'Salvando…', text: 'Sincronizando…' },
-        offline: { dot: 'off', pill: 'Offline', text: 'Offline — salva quando voltar' }
+        offline: { dot: 'off', pill: 'Offline', text: 'Offline — salva quando voltar' },
+        signedout: { dot: '', pill: 'Entrar', text: 'Faça login com o Google' },
+        denied: { dot: 'off', pill: 'Sem acesso', text: 'Esta conta não tem acesso' }
       };
       const m = map[st] || map.syncing;
       const dot = $('#cloud-pill-dot');
@@ -2898,6 +3088,13 @@
           }
           case 'fin-filter': state.filterFin = el.dataset.v; renderFin(); break;
           case 'mark-all-paid': markAllPaid(); break;
+          case 'sign-in': signInGoogle(); break;
+          case 'sign-out': signOutGoogle(); break;
+          case 'gate-switch':
+            try { if (cloud.app) await cloud.app.auth().signOut(); } catch (err) {}
+            showGate('login');
+            signInGoogle();
+            break;
           case 'add-outflow': openOutflowForm(); break;
           case 'edit-outflow': openOutflowForm(id); break;
           case 'add-income': openIncomeForm(); break;
@@ -2931,7 +3128,8 @@
             break;
           }
           case 'cloud-force':
-            if (!cloud.ready) { initCloud(true); break; }
+            if (!state.user) { showGate('login'); break; }
+            if (!cloud.ready) { connectDb(true); break; }
             Object.keys(SECTIONS).forEach(s => cloud.dirty.add(s));
             flushOutflows();
             await pushDirty();
@@ -3029,7 +3227,11 @@
           stopPeriodicSync();
         }
       });
-      window.addEventListener('online', () => { if (!cloud.ready) initCloud(false); else { state.cloudStatus = 'syncing'; scheduleCloudPush(); } });
+      window.addEventListener('online', () => {
+        if (!cloud.app) initCloud(false);
+        else if (state.user && !cloud.ready) connectDb(false);
+        else if (cloud.ready) { state.cloudStatus = 'syncing'; scheduleCloudPush(); }
+      });
       window.addEventListener('offline', () => { state.cloudStatus = 'offline'; updateCloudUi(); });
       if (window.matchMedia) {
         const mq = window.matchMedia('(prefers-color-scheme: light)');
@@ -3047,6 +3249,9 @@
       $$('[data-icon]').forEach(el => { el.outerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 16); });
       bindEvents();
       renderAll();
+      renderAccount();
+      // Aparelho sem conta lembrada: tela de login até o Google confirmar
+      if (!getRaw(STORAGE.USER)) showGate('loading');
       initCloud(false);
       if (state.autoSync && state.icsUrl) executeSync(true);
       startPeriodicSync();
