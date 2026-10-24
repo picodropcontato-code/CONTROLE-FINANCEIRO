@@ -368,6 +368,11 @@
     .acct { display: flex; align-items: center; gap: 12px; }
     .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--primary-soft); color: var(--primary-text); display: grid; place-items: center; font-weight: 700; }
     .who { color: var(--muted); }
+    .siri { color: #b07cf0; display: inline-flex; align-items: center; gap: 4px; }
+    .steps { margin: 14px 0 0; padding-left: 20px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+    .steps b { color: var(--text); font-weight: 600; }
+    .steps code { font-size: 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--text); }
+    .copy-url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px !important; }
 
     /* ================= SETTINGS ================= */
     .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
@@ -813,6 +818,16 @@
             </dl>
           </div>
 
+          <!-- Siri -->
+          <div class="card">
+            <div class="card-head">
+              <h2><span data-icon="mic"></span>Siri (iPhone)</h2>
+              <span class="status-text" id="siri-status"></span>
+            </div>
+            <p class="desc">Diga <b>“E aí Siri, anotar gasto”</b> e fale o valor, tipo “200 de gasolina”. A saída entra aqui com o seu nome.</p>
+            <div id="siri-body"></div>
+          </div>
+
           <!-- Backup -->
           <div class="card">
             <div class="card-head">
@@ -936,6 +951,9 @@
 
     // Saídas ficam num caminho próprio, gravadas item a item (o bot do WhatsApp escreve aqui também)
     const OUT_PATH = 'picodrop_outflows';
+    // Atalho da Siri: chaves pessoais ficam aqui; o bot valida cada pedido
+    const SC_PATH = 'picodrop_shortcuts';
+    const BOT_URL = 'https://financeiro-bot.picodropcontato.workers.dev';
 
     // Mesma lista usada pelo bot (worker.js) — mantenha as duas iguais
     const CATEGORIES = [
@@ -1015,7 +1033,9 @@
       inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/>',
       cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H6"/>',
       chat: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3Z"/>',
-      user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+      user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+      mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/>',
+      copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'
     };
 
     /* =====================================================================
@@ -1038,6 +1058,7 @@
       outflows: {},
       outPending: {},
       user: null,
+      shortcuts: {},
       firebaseConfig: DEFAULT_FIREBASE_CONFIG,
       sectionTimestamps: {},
       month: firstOfMonth(new Date()),
@@ -1051,7 +1072,7 @@
     const cloud = {
       app: null, ref: null, connRef: null, listening: false, ready: false,
       initializing: false, dirty: new Set(), timer: null, lastWrite: null,
-      outRef: null, outLoaded: false, authUnsub: null
+      outRef: null, outLoaded: false, authUnsub: null, scRef: null
     };
 
     let periodicTimer = null;
@@ -1342,7 +1363,7 @@
         if (state.outPending[k] === null) delete merged[k];
         else merged[k] = state.outPending[k];
       });
-      const fresh = cloud.outLoaded ? Object.keys(merged).filter(k => !state.outflows[k] && merged[k].source === 'whatsapp') : [];
+      const fresh = cloud.outLoaded ? Object.keys(merged).filter(k => !state.outflows[k] && (merged[k].source === 'whatsapp' || merged[k].source === 'siri')) : [];
       if (JSON.stringify(merged) === JSON.stringify(state.outflows)) { cloud.outLoaded = true; return; }
       state.outflows = merged;
       cloud.outLoaded = true;
@@ -1350,7 +1371,7 @@
       renderAll();
       fresh.forEach(k => {
         const o = merged[k];
-        toast('Nova saída pelo WhatsApp: ' + fmtBRL(o.value) + ' · ' + catInfo(o.category).name);
+        toast('Nova saída ' + (o.source === 'siri' ? 'pela Siri' : 'pelo WhatsApp') + (o.who ? ' (' + o.who + ')' : '') + ': ' + fmtBRL(o.value) + ' · ' + catInfo(o.category).name);
       });
     }
 
@@ -1889,9 +1910,15 @@
         '<div class="date-badge"><b>' + dt.getDate() + '</b><span>' + WD[dt.getDay()] + '</span></div>' +
         '<div class="row-main"><div class="row-title">' + esc(o.description || cat.name) + '</div>' +
           '<div class="row-sub"><span class="cat-dot" style="background:' + cat.color + '"></span>' + esc(cat.name) +
-          (o.source === 'whatsapp' ? ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>' : '') +
+          srcBadge(o) +
           (o.who ? ' · <span class="who">' + esc(o.who) + '</span>' : '') + '</div></div>' +
         '<div class="row-end"><div class="row-amt num neg">− ' + fmtBRL(o.value) + '</div></div></div>';
+    }
+
+    function srcBadge(o) {
+      if (o.source === 'whatsapp') return ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>';
+      if (o.source === 'siri') return ' · <span class="siri" title="Lançada pela Siri">' + icon('mic', 12) + 'Siri</span>';
+      return '';
     }
 
     function renderOutCats(outs, total) {
@@ -2006,7 +2033,7 @@
       const catOpts = CATEGORIES.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
       const body =
         '<div class="form-grid">' +
-          (o && o.source === 'whatsapp' && o.raw ? '<div class="raw-msg"><span class="wa">' + icon('chat', 14) + '</span><span>“' + esc(o.raw) + '”</span></div>' : '') +
+          (o && (o.source === 'whatsapp' || o.source === 'siri') && o.raw ? '<div class="raw-msg"><span class="' + (o.source === 'siri' ? 'siri' : 'wa') + '">' + icon(o.source === 'siri' ? 'mic' : 'chat', 14) + '</span><span>“' + esc(o.raw) + '”</span></div>' : '') +
           '<label class="field"><span class="field-label">Descrição</span><input class="input" id="o-desc" value="' + esc(o ? o.description : '') + '" placeholder="Ex.: Gasolina, almoço, cabo XLR" autocomplete="off"></label>' +
           '<div class="grid-2 gap-sm">' +
             '<label class="field"><span class="field-label">Valor (R$)</span><input class="input" id="o-val" inputmode="decimal" value="' + (o ? moneyInput(o.value) : '') + '" placeholder="0,00"></label>' +
@@ -2039,7 +2066,7 @@
       Modal.open({
         type: 'outflow',
         title: o ? 'Editar saída' : 'Nova saída',
-        subtitle: o ? ((o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : 'Lançada no site') + (o.who ? ' · ' + o.who : '')) : 'Gasto do dia a dia',
+        subtitle: o ? ((o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : o.source === 'siri' ? 'Lançada pela Siri' : 'Lançada no site') + (o.who ? ' · ' + o.who : '')) : 'Gasto do dia a dia',
         body: body, footer: footer, focus: o ? null : '#o-desc',
         onMount: () => {
           const sel = $('#o-cat'), desc = $('#o-desc');
@@ -2262,6 +2289,7 @@
         const o = state.outflows[k];
         if (o && o.source === 'whatsapp') lastWa = Math.max(lastWa, Number(o.createdAt) || 0);
       });
+      renderSiri();
       $('#wa-status').innerHTML = lastWa
         ? '<span class="dot ok"></span>Último gasto ' + formatSyncTime(lastWa)
         : '<span class="dot"></span>Nenhuma mensagem ainda';
@@ -2760,7 +2788,8 @@
       try { if (cloud.ref) cloud.ref.off(); } catch (e) {}
       try { if (cloud.connRef) cloud.connRef.off(); } catch (e) {}
       try { if (cloud.outRef) cloud.outRef.off(); } catch (e) {}
-      cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.outLoaded = false;
+      try { if (cloud.scRef) cloud.scRef.off(); } catch (e) {}
+      cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.scRef = null; cloud.outLoaded = false;
       cloud.listening = false; cloud.ready = false;
     }
 
@@ -2860,6 +2889,8 @@
           catch (e) { console.warn('Erro ao aplicar atualização da nuvem:', e); }
         }, e => { if (isPermissionError(e)) denyAccess(); });
         cloud.listening = true;
+        cloud.scRef = db.ref(SC_PATH);
+        cloud.scRef.on('value', s => { state.shortcuts = s.val() || {}; renderSiri(); }, e => console.warn('Sem acesso aos atalhos:', e));
         cloud.outRef = db.ref(OUT_PATH);
         cloud.outRef.on('value', s => {
           try { applyOutflows(s.val()); refreshModalSafe(); } catch (e) { console.warn('Erro ao aplicar saídas:', e); }
@@ -2962,6 +2993,65 @@
       const n = (u.name || u.email || '').trim().split(/[\s@]+/)[0];
       return n ? capitalize(n) : '';
     }
+    function myShortcutKey() {
+      const u = currentUserInfo();
+      if (!u || !u.email) return null;
+      return Object.keys(state.shortcuts || {}).find(k => state.shortcuts[k] && state.shortcuts[k].email === u.email) || null;
+    }
+    function renderSiri() {
+      const body = $('#siri-body');
+      if (!body) return;
+      const st = $('#siri-status');
+      const others = Object.keys(state.shortcuts || {}).map(k => state.shortcuts[k]).filter(x => x && (!state.user || x.email !== state.user.email)).map(x => x.who).filter(Boolean);
+      if (!state.user || !cloud.ready) {
+        body.innerHTML = '<div class="muted" style="font-size:13px;">Entre com o Google e conecte à nuvem para configurar.</div>';
+        if (st) st.innerHTML = '';
+        return;
+      }
+      const key = myShortcutKey();
+      if (st) st.innerHTML = key ? '<span class="dot ok"></span>Configurado' : '<span class="dot"></span>Não configurado';
+      if (!key) {
+        body.innerHTML = '<button type="button" class="btn btn-primary btn-sm" data-act="siri-gen">' + icon('mic', 14) + 'Gerar meu atalho</button>' +
+          (others.length ? '<div class="hint" style="margin-top:10px;">Já configurado por: ' + esc(others.join(', ')) + '</div>' : '');
+        return;
+      }
+      const link = BOT_URL + '/atalho?k=' + key;
+      body.innerHTML =
+        '<label class="field"><span class="field-label">Seu link pessoal (não compartilhe)</span>' +
+        '<span class="input-group"><input class="input copy-url" id="siri-link" readonly value="' + esc(link) + '">' +
+        '<button type="button" class="btn" data-act="siri-copy">' + icon('copy', 15) + 'Copiar</button></span></label>' +
+        '<ol class="steps">' +
+          '<li>No iPhone, abra o app <b>Atalhos</b> e toque em <b>+</b>.</li>' +
+          '<li>Adicione a ação <b>Pedir Entrada</b>. Em pergunta, escreva <b>O que você gastou?</b></li>' +
+          '<li>Adicione <b>Obter Conteúdo da URL</b> e cole o link acima. Toque na setinha e ajuste: Método <b>POST</b>, Corpo da Solicitação <b>JSON</b>, adicione um campo de texto com chave <code>texto</code> e valor <b>Entrada Fornecida</b>.</li>' +
+          '<li>Adicione <b>Falar Texto</b> (ele já usa o <b>Conteúdo da URL</b>).</li>' +
+          '<li>Toque no nome no topo e renomeie para <b>Anotar gasto</b>. Pronto!</li>' +
+        '</ol>' +
+        '<div class="row-between" style="margin-top:12px;">' +
+          '<span class="hint">' + (others.length ? 'Também usam: ' + esc(others.join(', ')) : '') + '</span>' +
+          '<button type="button" class="btn btn-danger-ghost btn-sm" data-act="siri-revoke">Revogar chave</button>' +
+        '</div>';
+    }
+    async function siriGenerate() {
+      if (!cloud.ready || !cloud.app || !state.user) { toast('Conecte-se à nuvem primeiro', { tone: 'danger' }); return; }
+      const key = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+      try {
+        await cloud.app.database().ref(SC_PATH + '/' + key).set({ who: firstName(), email: state.user.email, createdAt: Date.now() });
+        toast('Atalho gerado — siga os passos no iPhone');
+      } catch (e) {
+        console.warn(e);
+        toast('Não foi possível gerar a chave', { tone: 'danger' });
+      }
+    }
+    async function siriRevoke() {
+      const key = myShortcutKey();
+      if (!key) return;
+      const ok = await confirmDanger('Revogar chave da Siri?', 'O atalho do seu iPhone para de funcionar. Você pode gerar outra chave depois.', 'Revogar');
+      if (!ok) return;
+      try { await cloud.app.database().ref(SC_PATH + '/' + key).remove(); toast('Chave revogada'); }
+      catch (e) { toast('Não foi possível revogar', { tone: 'danger' }); }
+    }
+
     function renderAccount() {
       const el = $('#acct');
       if (!el) return;
@@ -3089,6 +3179,14 @@
           case 'fin-filter': state.filterFin = el.dataset.v; renderFin(); break;
           case 'mark-all-paid': markAllPaid(); break;
           case 'sign-in': signInGoogle(); break;
+          case 'siri-gen': siriGenerate(); break;
+          case 'siri-revoke': siriRevoke(); break;
+          case 'siri-copy': {
+            const inp = $('#siri-link');
+            try { await navigator.clipboard.writeText(inp.value); toast('Link copiado'); }
+            catch (err) { inp.select(); try { document.execCommand('copy'); toast('Link copiado'); } catch (e2) { toast('Selecione e copie o link'); } }
+            break;
+          }
           case 'sign-out': signOutGoogle(); break;
           case 'gate-switch':
             try { if (cloud.app) await cloud.app.auth().signOut(); } catch (err) {}
