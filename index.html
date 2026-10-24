@@ -326,6 +326,31 @@
     .hist-items b { color: var(--text); font-weight: 650; }
     .card.subtle { background: transparent; box-shadow: none; border-style: dashed; }
 
+    /* ================= SAÍDAS ================= */
+    .out-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 28px; }
+    .out-side { border-left: 1px solid var(--line); padding-left: 24px; min-width: 0; }
+    .out-side-title { font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 2px 0 14px; }
+    .cat-bars { display: flex; flex-direction: column; gap: 13px; }
+    .cat-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+    .cat-bar-top span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+    .cat-bar-top b { font-weight: 650; white-space: nowrap; }
+    .cat-bar-top em { font-style: normal; color: var(--dim); font-size: 11.5px; margin-left: 6px; font-weight: 500; }
+    .cat-bar-track { height: 6px; border-radius: 99px; background: var(--card-2); overflow: hidden; margin-top: 6px; }
+    .cat-bar-track > div { height: 100%; border-radius: inherit; transition: width .4s ease; }
+    .cat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .wa { color: #25d366; display: inline-flex; align-items: center; gap: 4px; }
+    .raw-msg { background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+    .raw-msg .wa { margin-top: 2px; }
+    .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .examples span { font-size: 12.5px; padding: 5px 10px; border-radius: 999px 999px 999px 4px; background: var(--green-soft); color: var(--green); font-weight: 550; }
+    .cmds { font-size: 13px; color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
+    .cmds dt { font-weight: 650; color: var(--text); }
+    .cmds dd { margin: 0; }
+    @media (max-width: 920px) {
+      .out-layout { grid-template-columns: 1fr; gap: 18px; }
+      .out-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; }
+    }
+
     /* ================= SETTINGS ================= */
     .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
     .settings-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
@@ -591,7 +616,7 @@
             <h2><span data-icon="chart"></span>Últimos 6 meses</h2>
             <div class="legend" style="display:flex;">
               <span><i class="lg lg-open"></i>Receitas</span>
-              <span><i class="lg lg-exp"></i>Contas</span>
+              <span><i class="lg lg-exp"></i>Despesas</span>
             </div>
           </div>
           <div class="chart" id="fin-chart"></div>
@@ -599,6 +624,20 @@
       </div>
 
       <div class="kpis" id="fin-kpis"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2><span data-icon="cart"></span>Saídas</h2>
+          <div class="card-tools">
+            <span class="muted" id="out-count" style="font-size:12.5px;"></span>
+            <button class="btn btn-sm" type="button" data-act="add-outflow"><span data-icon="plus"></span>Nova saída</button>
+          </div>
+        </div>
+        <div class="out-layout">
+          <div class="list" id="fin-outflows"></div>
+          <div class="out-side" id="fin-out-cats"></div>
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-head">
@@ -731,6 +770,23 @@
             </details>
           </div>
 
+          <!-- WhatsApp -->
+          <div class="card">
+            <div class="card-head">
+              <h2><span data-icon="chat"></span>WhatsApp</h2>
+              <span class="status-text" id="wa-status"></span>
+            </div>
+            <p class="desc">Mande seus gastos para o número do bot e eles entram em Financeiro → Saídas, com categoria automática.</p>
+            <div class="examples">
+              <span>200 gasolina</span><span>gastei 35,90 no almoço</span><span>mercado 150 ontem</span><span>80 uber dia 12</span>
+            </div>
+            <dl class="cmds">
+              <dt>resumo</dt><dd>gastos do mês por categoria</dd>
+              <dt>desfazer</dt><dd>apaga o último lançamento</dd>
+              <dt>ajuda</dt><dd>mostra os exemplos</dd>
+            </dl>
+          </div>
+
           <!-- Backup -->
           <div class="card">
             <div class="card-head">
@@ -825,8 +881,27 @@
       SECTION_TIMESTAMPS: 'pd_sec_ts_v1',
       IGNORED_UIDS: 'pd_ignored_uids_v1',
       THEME: 'pd_theme_v1',
-      TAB: 'pd_tab_v1'
+      TAB: 'pd_tab_v1',
+      OUTFLOWS: 'pd_outflows_v1',
+      OUT_PENDING: 'pd_outflows_pending_v1'
     };
+
+    // Saídas ficam num caminho próprio, gravadas item a item (o bot do WhatsApp escreve aqui também)
+    const OUT_PATH = 'picodrop_outflows';
+
+    // Mesma lista usada pelo bot (worker.js) — mantenha as duas iguais
+    const CATEGORIES = [
+      { id: 'combustivel', name: 'Combustível', color: '#e8a33d', kw: ['gasolina', 'combustivel', 'etanol', 'alcool', 'diesel', 'posto', 'abasteci', 'abastecer', 'abastecimento', 'gnv'] },
+      { id: 'alimentacao', name: 'Alimentação', color: '#e5735a', kw: ['almoco', 'almocei', 'janta', 'jantar', 'jantei', 'lanche', 'lanchei', 'cafe', 'restaurante', 'ifood', 'pizza', 'hamburguer', 'burger', 'comida', 'marmita', 'padaria', 'acai', 'sorvete', 'refri', 'refrigerante', 'agua de coco', 'salgado', 'pastel', 'churrasco'] },
+      { id: 'mercado', name: 'Mercado', color: '#4fb37a', kw: ['mercado', 'supermercado', 'feira', 'atacadao', 'assai', 'hortifruti', 'acougue', 'sacolao', 'compras do mes'] },
+      { id: 'transporte', name: 'Transporte', color: '#4f8fe8', kw: ['uber', '99', 'taxi', 'onibus', 'metro', 'passagem', 'pedagio', 'estacionamento', 'oficina', 'mecanico', 'pneu', 'lava jato', 'lavagem', 'ipva', 'licenciamento', 'multa', 'revisao', 'troca de oleo'] },
+      { id: 'equipamento', name: 'Equipamento', color: '#9b7be8', kw: ['cabo', 'cabos', 'microfone', 'mic', 'lente', 'camera', 'cartao de memoria', 'cartao sd', 'bateria', 'baterias', 'tripe', 'hd', 'ssd', 'equipamento', 'led', 'fone', 'pilha', 'pilhas', 'adaptador', 'gimbal', 'case', 'software', 'plugin'] },
+      { id: 'casa', name: 'Casa', color: '#3fb6c4', kw: ['gas', 'botijao', 'agua', 'energia', 'conta de luz', 'limpeza', 'movel', 'moveis', 'reforma', 'material de construcao', 'condominio', 'internet'] },
+      { id: 'saude', name: 'Saúde', color: '#e46a9a', kw: ['farmacia', 'remedio', 'remedios', 'medico', 'consulta', 'exame', 'dentista', 'academia', 'hospital', 'plano de saude'] },
+      { id: 'lazer', name: 'Lazer', color: '#c9a93a', kw: ['cinema', 'show', 'bar', 'cerveja', 'viagem', 'passeio', 'netflix', 'spotify', 'jogo', 'festa', 'role', 'ingresso'] },
+      { id: 'compras', name: 'Compras', color: '#d07fd6', kw: ['roupa', 'roupas', 'tenis', 'sapato', 'presente', 'loja', 'shopee', 'mercado livre', 'amazon', 'shein', 'camisa', 'calca'] },
+      { id: 'outros', name: 'Outros', color: '#8d97a9', kw: [] }
+    ];
 
     const DEFAULT_FIREBASE_CONFIG = {
       apiKey: "AIzaSyAWUo_xjKAg6dkV5Rz1drajHvg7KW64_DE",
@@ -889,7 +964,9 @@
       sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
       database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
       chart: '<path d="M3 3v18h18"/><path d="M8 16v-5M13 16V8M18 16v-3"/>',
-      inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/>'
+      inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/>',
+      cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H6"/>',
+      chat: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3Z"/>'
     };
 
     /* =====================================================================
@@ -909,6 +986,8 @@
       incomes: [],
       incomesStatus: {},
       ignoredUids: [],
+      outflows: {},
+      outPending: {},
       firebaseConfig: DEFAULT_FIREBASE_CONFIG,
       sectionTimestamps: {},
       month: firstOfMonth(new Date()),
@@ -921,7 +1000,8 @@
 
     const cloud = {
       app: null, ref: null, connRef: null, listening: false, ready: false,
-      initializing: false, dirty: new Set(), timer: null, lastWrite: null
+      initializing: false, dirty: new Set(), timer: null, lastWrite: null,
+      outRef: null, outLoaded: false
     };
 
     let periodicTimer = null;
@@ -1044,8 +1124,11 @@
       const tab = getRaw(STORAGE.TAB);
       state.tab = ['agenda', 'fin', 'ajustes'].indexOf(tab) !== -1 ? tab : 'agenda';
 
+      state.outflows = readJSON(STORAGE.OUTFLOWS, {});
+      state.outPending = readJSON(STORAGE.OUT_PENDING, {});
+
       ['services', 'days', 'expenses', 'incomes', 'ignoredUids'].forEach(k => { if (!Array.isArray(state[k])) state[k] = []; });
-      ['expensesStatus', 'incomesStatus'].forEach(k => { if (!state[k] || typeof state[k] !== 'object' || Array.isArray(state[k])) state[k] = {}; });
+      ['expensesStatus', 'incomesStatus', 'outflows', 'outPending'].forEach(k => { if (!state[k] || typeof state[k] !== 'object' || Array.isArray(state[k])) state[k] = {}; });
     }
 
     function writeSection(section) {
@@ -1144,17 +1227,97 @@
     }
     function isExpensePaid(exp, mKey) { return !!(state.expensesStatus[mKey] && state.expensesStatus[mKey][exp.id]); }
 
+    /* ---------- Saídas ---------- */
+    function normText(s) {
+      return ' ' + String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+    }
+    function catInfo(id) { return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1]; }
+    // Escolhe a categoria cuja palavra-chave mais longa aparece no texto ("mercado livre" vence "mercado")
+    function categorize(text) {
+      const t = normText(text);
+      let best = null, len = 0;
+      CATEGORIES.forEach(c => {
+        c.kw.concat([normText(c.name).trim()]).forEach(k => {
+          if (k && k.length > len && t.indexOf(' ' + k + ' ') !== -1) { best = c; len = k.length; }
+        });
+      });
+      return best || catInfo('outros');
+    }
+    function outflowsForMonth(monthDate) {
+      const mKey = monthKey(monthDate);
+      return Object.keys(state.outflows).map(k => state.outflows[k])
+        .filter(o => o && o.date && o.date.indexOf(mKey) === 0)
+        .sort((a, b) => b.date.localeCompare(a.date) || (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+    }
+    function saveOutflowsLocal() {
+      setRaw(STORAGE.OUTFLOWS, JSON.stringify(state.outflows));
+      setRaw(STORAGE.OUT_PENDING, JSON.stringify(state.outPending));
+    }
+    function saveOutflow(o) {
+      state.outflows[o.id] = o;
+      state.outPending[o.id] = o;
+      saveOutflowsLocal();
+      renderAll();
+      flushOutflows();
+    }
+    function deleteOutflow(id) {
+      const o = state.outflows[id];
+      if (!o) return;
+      delete state.outflows[id];
+      state.outPending[id] = null;
+      saveOutflowsLocal();
+      renderAll();
+      flushOutflows();
+      toast('Saída excluída', { action: { label: 'Desfazer', fn: () => saveOutflow(o) } });
+    }
+    // Envia para a nuvem as saídas criadas/alteradas/excluídas neste aparelho
+    function flushOutflows() {
+      if (!cloud.ready || !cloud.outRef) return;
+      Object.keys(state.outPending).forEach(id => {
+        const v = state.outPending[id];
+        const p = v === null ? cloud.outRef.child(id).remove() : cloud.outRef.child(id).set(JSON.parse(JSON.stringify(v)));
+        p.then(() => {
+          if (state.outPending[id] === v) { delete state.outPending[id]; saveOutflowsLocal(); }
+        }).catch(e => console.warn('Falha ao enviar saída:', e));
+      });
+    }
+    // Recebe a lista da nuvem (inclui o que chegou pelo WhatsApp)
+    function applyOutflows(map) {
+      const merged = {};
+      Object.keys(map || {}).forEach(k => {
+        const o = map[k];
+        if (o && typeof o === 'object' && o.date) merged[k] = Object.assign({}, o, { id: k });
+      });
+      Object.keys(state.outPending).forEach(k => {
+        if (state.outPending[k] === null) delete merged[k];
+        else merged[k] = state.outPending[k];
+      });
+      const fresh = cloud.outLoaded ? Object.keys(merged).filter(k => !state.outflows[k] && merged[k].source === 'whatsapp') : [];
+      if (JSON.stringify(merged) === JSON.stringify(state.outflows)) { cloud.outLoaded = true; return; }
+      state.outflows = merged;
+      cloud.outLoaded = true;
+      saveOutflowsLocal();
+      renderAll();
+      fresh.forEach(k => {
+        const o = merged[k];
+        toast('Nova saída pelo WhatsApp: ' + fmtBRL(o.value) + ' · ' + catInfo(o.category).name);
+      });
+    }
+
     function monthSummary(monthDate) {
       const mKey = monthKey(monthDate);
       const s = { trabTotal: 0, trabPago: 0, trabCount: 0, entTotal: 0, entRec: 0, entCount: 0, contasTotal: 0, contasPagas: 0, contasCount: 0, contasPagasCount: 0 };
       worksInMonth(mKey).forEach(w => { const t = dayTotal(w); s.trabTotal += t; s.trabCount++; if (w.paid) s.trabPago += t; });
       incomesForMonth(monthDate).forEach(i => { const v = Number(i.value) || 0; s.entTotal += v; s.entCount++; if (isIncomeReceived(i, mKey)) s.entRec += v; });
       expensesForMonth(monthDate).forEach(e => { const v = Number(e.value) || 0; s.contasTotal += v; s.contasCount++; if (isExpensePaid(e, mKey)) { s.contasPagas += v; s.contasPagasCount++; } });
+      s.saidasTotal = 0; s.saidasCount = 0;
+      outflowsForMonth(monthDate).forEach(o => { s.saidasTotal += Number(o.value) || 0; s.saidasCount++; });
       s.receitas = s.trabTotal + s.entTotal;
       s.recebido = s.trabPago + s.entRec;
       s.aReceber = s.receitas - s.recebido;
-      s.saldo = s.receitas - s.contasTotal;
-      s.disponivel = s.recebido - s.contasPagas;
+      s.despesas = s.contasTotal + s.saidasTotal;
+      s.saldo = s.receitas - s.despesas;
+      s.disponivel = s.recebido - s.contasPagas - s.saidasTotal;
       return s;
     }
 
@@ -1617,6 +1780,7 @@
         '<div class="hero-break">' +
           '<span><span class="pos">' + icon('arrowUp', 14) + '</span>Receitas <b class="num">' + fmtBRL(S.receitas) + '</b></span>' +
           '<span><span class="neg">' + icon('arrowDown', 14) + '</span>Contas <b class="num">' + fmtBRL(S.contasTotal) + '</b></span>' +
+          '<span><span class="neg">' + icon('arrowDown', 14) + '</span>Saídas <b class="num">' + fmtBRL(S.saidasTotal) + '</b></span>' +
         '</div>' +
         '<div class="hero-progress"><div class="progress" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><div style="width:' + pct + '%"></div></div>' +
         '<div class="hero-foot"><span>' + fmtBRL(S.recebido) + ' recebido</span><span>' + pct + '% das receitas</span></div></div>';
@@ -1624,10 +1788,18 @@
       $('#fin-kpis').innerHTML =
         kpi('Recebido', fmtBRL(S.recebido), 'Trabalhos e entradas', 'green') +
         kpi('A receber', fmtBRL(S.aReceber), plural(S.trabCount, 'trabalho', 'trabalhos') + ' · ' + plural(S.entCount, 'entrada', 'entradas'), 'amber') +
-        kpi('Contas pagas', fmtBRL(S.contasPagas), S.contasPagasCount + ' de ' + S.contasCount + ' contas', 'red') +
-        kpi('Em caixa', fmtBRL(S.disponivel), 'Recebido − contas pagas', S.disponivel < 0 ? 'red' : '');
+        kpi('Saídas', fmtBRL(S.saidasTotal), plural(S.saidasCount, 'lançamento', 'lançamentos') + ' · contas pagas ' + S.contasPagasCount + '/' + S.contasCount, 'red') +
+        kpi('Em caixa', fmtBRL(S.disponivel), 'Recebido − contas pagas − saídas', S.disponivel < 0 ? 'red' : '');
 
       renderChart();
+
+      // Saídas
+      const outs = outflowsForMonth(state.month);
+      $('#out-count').textContent = outs.length ? plural(outs.length, 'saída', 'saídas') + ' · ' + fmtBRL(S.saidasTotal) : '';
+      $('#fin-outflows').innerHTML = outs.length
+        ? outs.map(outflowRow).join('')
+        : emptyState('cart', 'Nenhuma saída em ' + MONTHS[state.month.getMonth()].toLowerCase(), 'Mande "200 gasolina" no WhatsApp ou adicione aqui.');
+      $('#fin-out-cats').innerHTML = renderOutCats(outs, S.saidasTotal);
 
       // Trabalhos
       const works = worksInMonth(mKey);
@@ -1660,6 +1832,30 @@
         '<span>' + plural(state.days.length, 'trabalho', 'trabalhos') + '</span></div></div>';
     }
 
+    function outflowRow(o) {
+      const dt = parseISO(o.date);
+      const cat = catInfo(o.category);
+      return '<div class="row" role="button" tabindex="0" data-act="edit-outflow" data-id="' + esc(o.id) + '">' +
+        '<div class="date-badge"><b>' + dt.getDate() + '</b><span>' + WD[dt.getDay()] + '</span></div>' +
+        '<div class="row-main"><div class="row-title">' + esc(o.description || cat.name) + '</div>' +
+          '<div class="row-sub"><span class="cat-dot" style="background:' + cat.color + '"></span>' + esc(cat.name) +
+          (o.source === 'whatsapp' ? ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>' : '') + '</div></div>' +
+        '<div class="row-end"><div class="row-amt num neg">− ' + fmtBRL(o.value) + '</div></div></div>';
+    }
+
+    function renderOutCats(outs, total) {
+      if (!outs.length) return '<div class="out-side-title">Por categoria</div><div class="muted" style="font-size:13px;">As categorias aparecem aqui conforme você lança saídas.</div>';
+      const by = {};
+      outs.forEach(o => { const c = catInfo(o.category).id; by[c] = (by[c] || 0) + (Number(o.value) || 0); });
+      const rows = Object.keys(by).sort((a, b) => by[b] - by[a]).map(id => {
+        const c = catInfo(id);
+        const pct = total > 0 ? Math.round(by[id] / total * 100) : 0;
+        return '<div><div class="cat-bar-top"><span><span class="cat-dot" style="background:' + c.color + '"></span>' + esc(c.name) + '<em>' + pct + '%</em></span><b class="num">' + fmtBRL(by[id]) + '</b></div>' +
+          '<div class="cat-bar-track"><div style="width:' + Math.max(pct, 2) + '%;background:' + c.color + '"></div></div></div>';
+      }).join('');
+      return '<div class="out-side-title">Por categoria</div><div class="cat-bars">' + rows + '</div>';
+    }
+
     function incomeRow(inc, mKey) {
       const rec = isIncomeReceived(inc, mKey);
       const overdue = !rec && isPastDate(parseISO(inc.effectiveDate));
@@ -1690,12 +1886,12 @@
       for (let i = 5; i >= 0; i--) {
         const d = addMonths(state.month, -i);
         const s = monthSummary(d);
-        data.push({ label: MONTHS_SHORT[d.getMonth()], full: monthLabel(d), r: s.receitas, c: s.contasTotal, cur: i === 0 });
+        data.push({ label: MONTHS_SHORT[d.getMonth()], full: monthLabel(d), r: s.receitas, c: s.despesas, cur: i === 0 });
       }
       const max = Math.max(1, ...data.map(x => Math.max(x.r, x.c)));
       const W = 600, H = 200, pl = 44, pr = 6, pt = 10, pb = 28;
       const plotH = H - pt - pb, gw = (W - pl - pr) / data.length, bw = Math.min(22, gw * 0.28);
-      let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Receitas e contas dos últimos 6 meses">';
+      let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Receitas e despesas dos últimos 6 meses">';
       [0, 0.5, 1].forEach(g => {
         const y = pt + plotH - plotH * g;
         svg += '<line class="ch-grid" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '"/>';
@@ -1706,7 +1902,7 @@
         const dim = x.cur ? '' : ' ch-dim';
         const hr = x.r / max * plotH, hc = x.c / max * plotH;
         if (hr > 0) svg += '<rect class="ch-r' + dim + '" x="' + (cx - bw - 2) + '" y="' + (pt + plotH - hr) + '" width="' + bw + '" height="' + hr + '" rx="4"><title>' + esc(x.full) + ' — Receitas: ' + fmtBRL(x.r) + '</title></rect>';
-        if (hc > 0) svg += '<rect class="ch-c' + dim + '" x="' + (cx + 2) + '" y="' + (pt + plotH - hc) + '" width="' + bw + '" height="' + hc + '" rx="4"><title>' + esc(x.full) + ' — Contas: ' + fmtBRL(x.c) + '</title></rect>';
+        if (hc > 0) svg += '<rect class="ch-c' + dim + '" x="' + (cx + 2) + '" y="' + (pt + plotH - hc) + '" width="' + bw + '" height="' + hc + '" rx="4"><title>' + esc(x.full) + ' — Despesas: ' + fmtBRL(x.c) + '</title></rect>';
         svg += '<text class="ch-lbl' + (x.cur ? ' cur' : '') + '" x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle">' + x.label + '</text>';
       });
       svg += '</svg>';
@@ -1750,6 +1946,67 @@
       state.expensesStatus[mKey][id] = !state.expensesStatus[mKey][id];
       persist('expensesStatus');
       renderAll();
+    }
+
+    /* ---------- Formulário de saída ---------- */
+    function openOutflowForm(id) {
+      const o = id ? state.outflows[id] : null;
+      if (id && !o) return;
+      const catOpts = CATEGORIES.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+      const body =
+        '<div class="form-grid">' +
+          (o && o.source === 'whatsapp' && o.raw ? '<div class="raw-msg"><span class="wa">' + icon('chat', 14) + '</span><span>“' + esc(o.raw) + '”</span></div>' : '') +
+          '<label class="field"><span class="field-label">Descrição</span><input class="input" id="o-desc" value="' + esc(o ? o.description : '') + '" placeholder="Ex.: Gasolina, almoço, cabo XLR" autocomplete="off"></label>' +
+          '<div class="grid-2 gap-sm">' +
+            '<label class="field"><span class="field-label">Valor (R$)</span><input class="input" id="o-val" inputmode="decimal" value="' + (o ? moneyInput(o.value) : '') + '" placeholder="0,00"></label>' +
+            '<label class="field"><span class="field-label">Data</span><input class="input" type="date" id="o-date" value="' + esc(o ? o.date : defaultDateInMonth()) + '"></label>' +
+          '</div>' +
+          '<label class="field"><span class="field-label">Categoria</span><select class="input" id="o-cat">' + catOpts + '</select></label>' +
+        '</div>';
+      const footer = (o ? '<button type="button" class="btn btn-danger-ghost" id="o-del">' + icon('trash', 15) + 'Excluir</button>' : '') +
+        '<span class="spacer"></span><button type="button" class="btn btn-ghost" data-act="modal-close">Cancelar</button><button type="button" class="btn btn-primary" id="o-save">Salvar</button>';
+
+      const save = () => {
+        const desc = $('#o-desc').value.trim();
+        const val = parseMoney($('#o-val').value);
+        if (val === null || val <= 0) return invalid('#o-val', 'Informe um valor válido.');
+        const date = $('#o-date').value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return invalid('#o-date', 'Informe a data.');
+        const cat = $('#o-cat').value;
+        const obj = Object.assign({}, o || { id: uid('out'), source: 'manual', createdAt: Date.now() });
+        obj.description = desc || catInfo(cat).name;
+        obj.value = val;
+        obj.date = date;
+        obj.category = cat;
+        obj.updatedAt = Date.now();
+        Modal.close();
+        saveOutflow(obj);
+        toast(o ? 'Saída atualizada' : 'Saída adicionada');
+      };
+
+      Modal.open({
+        type: 'outflow',
+        title: o ? 'Editar saída' : 'Nova saída',
+        subtitle: o ? (o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : null) : 'Gasto do dia a dia',
+        body: body, footer: footer, focus: o ? null : '#o-desc',
+        onMount: () => {
+          const sel = $('#o-cat'), desc = $('#o-desc');
+          sel.value = o ? catInfo(o.category).id : 'outros';
+          let touched = !!o;
+          sel.addEventListener('change', () => { touched = true; });
+          desc.addEventListener('input', () => { if (!touched) sel.value = categorize(desc.value).id; });
+          $('#o-save').onclick = save;
+          if (o) {
+            $('#o-del').onclick = async () => {
+              const ok = await confirmDanger('Excluir saída?', '<b>' + esc(o.description || 'Saída') + '</b> de ' + fmtBRL(o.value) + ' será removida.');
+              if (!ok) return;
+              Modal.close();
+              deleteOutflow(o.id);
+            };
+          }
+          $('#modal-body').onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); save(); } };
+        }
+      });
     }
 
     /* ---------- Formulário de entrada ---------- */
@@ -1947,6 +2204,15 @@
       $('#ignored-text').textContent = plural(ign, 'evento excluído não será reimportado', 'eventos excluídos não serão reimportados');
 
       $$('#theme-seg button').forEach(b => b.classList.toggle('active', b.dataset.v === state.theme));
+
+      let lastWa = 0;
+      Object.keys(state.outflows).forEach(k => {
+        const o = state.outflows[k];
+        if (o && o.source === 'whatsapp') lastWa = Math.max(lastWa, Number(o.createdAt) || 0);
+      });
+      $('#wa-status').innerHTML = lastWa
+        ? '<span class="dot ok"></span>Último gasto ' + formatSyncTime(lastWa)
+        : '<span class="dot"></span>Nenhuma mensagem ainda';
       renderSyncLine();
     }
 
@@ -2274,27 +2540,37 @@
           autoSync: state.autoSync, onlyMatched: state.onlyMatched,
           lastSyncTs: state.lastSyncTs, lastSyncStatus: state.lastSyncStatus,
           days: state.days, expenses: state.expenses, expensesStatus: state.expensesStatus,
-          incomes: state.incomes, incomesStatus: state.incomesStatus, ignoredUids: state.ignoredUids
+          incomes: state.incomes, incomesStatus: state.incomesStatus, ignoredUids: state.ignoredUids,
+          outflows: state.outflows
         }
       };
     }
     function validateBackup(raw) {
       if (!raw || typeof raw !== 'object') return null;
       const p = (raw.data && typeof raw.data === 'object') ? raw.data : raw;
-      if (!Array.isArray(p.services) && !Array.isArray(p.days) && !Array.isArray(p.expenses) && !Array.isArray(p.incomes) && typeof p.icsUrl !== 'string') return null;
+      if (!Array.isArray(p.services) && !Array.isArray(p.days) && !Array.isArray(p.expenses) && !Array.isArray(p.incomes) && typeof p.icsUrl !== 'string' && !(p.outflows && typeof p.outflows === 'object')) return null;
       return p;
     }
     async function confirmRestore(p) {
       const n = k => Array.isArray(p[k]) ? p[k].length : 0;
       const ok = await ask({
         title: 'Restaurar backup?',
-        message: 'Os dados atuais serão substituídos em todos os aparelhos.<br><br>O backup contém <b>' + n('days') + '</b> trabalhos, <b>' + n('services') + '</b> serviços, <b>' + n('expenses') + '</b> contas e <b>' + n('incomes') + '</b> entradas.',
+        message: 'Os dados atuais serão substituídos em todos os aparelhos.<br><br>O backup contém <b>' + n('days') + '</b> trabalhos, <b>' + n('services') + '</b> serviços, <b>' + n('expenses') + '</b> contas, <b>' + n('incomes') + '</b> entradas e <b>' + (p.outflows && typeof p.outflows === 'object' ? Object.keys(p.outflows).length : 0) + '</b> saídas.',
         options: [{ label: 'Substituir dados', value: true, variant: 'danger' }]
       });
       if (!ok) return;
       const typeOk = (v, t) => t === 'array' ? Array.isArray(v) : t === 'object' ? (v && typeof v === 'object' && !Array.isArray(v)) : t === 'bool' ? typeof v === 'boolean' : typeof v === t;
       Object.keys(SECTIONS).forEach(k => { if (typeOk(p[k], SECTIONS[k].type)) { state[k] = p[k]; persist(k); } });
       if (p.lastSyncTs !== undefined) saveLastSync(p.lastSyncTs, p.lastSyncStatus || null);
+      if (p.outflows && typeof p.outflows === 'object' && !Array.isArray(p.outflows)) {
+        const next = {};
+        Object.keys(p.outflows).forEach(k => { const o = p.outflows[k]; if (o && o.date) next[k] = Object.assign({}, o, { id: k }); });
+        Object.keys(state.outflows).forEach(k => { if (!next[k]) state.outPending[k] = null; });
+        Object.keys(next).forEach(k => { state.outPending[k] = next[k]; });
+        state.outflows = next;
+        saveOutflowsLocal();
+        flushOutflows();
+      }
       renderAll();
       toast('Backup restaurado');
     }
@@ -2332,11 +2608,24 @@
         s.onload = res; s.onerror = () => rej(new Error('Falha ao carregar ' + src));
         document.head.appendChild(s);
       });
+      // Mesma versão do SDK em três CDNs: se um estiver bloqueado, tenta o próximo
+      const CDNS = [
+        'https://www.gstatic.com/firebasejs/10.12.0/',
+        'https://cdn.jsdelivr.net/npm/firebase@10.12.0/',
+        'https://unpkg.com/firebase@10.12.0/'
+      ];
+      const injectAny = async file => {
+        let lastErr = null;
+        for (let i = 0; i < CDNS.length; i++) {
+          try { await inject(CDNS[i] + file); return; }
+          catch (e) { lastErr = e; }
+        }
+        throw lastErr || new Error('Falha ao carregar ' + file);
+      };
       sdkPromise = (async () => {
-        const base = 'https://www.gstatic.com/firebasejs/10.12.0/';
-        if (!window.firebase) await inject(base + 'firebase-app-compat.js');
-        if (!window.firebase.auth) await inject(base + 'firebase-auth-compat.js');
-        if (!window.firebase.database) await inject(base + 'firebase-database-compat.js');
+        if (!window.firebase) await injectAny('firebase-app-compat.js');
+        if (!window.firebase.auth) await injectAny('firebase-auth-compat.js');
+        if (!window.firebase.database) await injectAny('firebase-database-compat.js');
         return window.firebase;
       })().catch(e => { sdkPromise = null; throw e; });
       return sdkPromise;
@@ -2417,8 +2706,9 @@
     async function resetCloud() {
       try { if (cloud.ref) cloud.ref.off(); } catch (e) {}
       try { if (cloud.connRef) cloud.connRef.off(); } catch (e) {}
+      try { if (cloud.outRef) cloud.outRef.off(); } catch (e) {}
       try { if (cloud.app) await cloud.app.delete(); } catch (e) {}
-      cloud.app = null; cloud.ref = null; cloud.connRef = null;
+      cloud.app = null; cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.outLoaded = false;
       cloud.listening = false; cloud.ready = false;
     }
 
@@ -2474,6 +2764,13 @@
           });
           cloud.listening = true;
         }
+        if (!cloud.outRef) {
+          cloud.outRef = db.ref(OUT_PATH);
+          cloud.outRef.on('value', s => {
+            try { applyOutflows(s.val()); refreshModalSafe(); } catch (e) { console.warn('Erro ao aplicar saídas:', e); }
+          }, e => console.warn('Sem acesso às saídas na nuvem:', e));
+        }
+        flushOutflows();
         state.cloudStatus = 'connected';
         updateCloudUi();
         if (cloud.dirty.size) pushDirty();
@@ -2546,10 +2843,12 @@
           options: [
             { label: 'Trabalho', value: 'work', variant: 'ghost' },
             { label: 'Conta fixa', value: 'exp', variant: 'ghost' },
-            { label: 'Entrada', value: 'inc' }
+            { label: 'Entrada', value: 'inc', variant: 'ghost' },
+            { label: 'Saída', value: 'out' }
           ]
         });
-        if (v === 'work') openWorkForm({ date: defaultDateInMonth() });
+        if (v === 'out') openOutflowForm();
+        else if (v === 'work') openWorkForm({ date: defaultDateInMonth() });
         else if (v === 'exp') openExpenseForm();
         else if (v === 'inc') openIncomeForm();
       }
@@ -2599,6 +2898,8 @@
           }
           case 'fin-filter': state.filterFin = el.dataset.v; renderFin(); break;
           case 'mark-all-paid': markAllPaid(); break;
+          case 'add-outflow': openOutflowForm(); break;
+          case 'edit-outflow': openOutflowForm(id); break;
           case 'add-income': openIncomeForm(); break;
           case 'edit-income': openIncomeForm(id); break;
           case 'toggle-income': toggleIncome(id); break;
@@ -2632,6 +2933,7 @@
           case 'cloud-force':
             if (!cloud.ready) { initCloud(true); break; }
             Object.keys(SECTIONS).forEach(s => cloud.dirty.add(s));
+            flushOutflows();
             await pushDirty();
             toast(state.cloudStatus === 'offline' ? 'Sem conexão com a nuvem' : 'Tudo sincronizado com a nuvem');
             break;
