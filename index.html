@@ -824,7 +824,7 @@
               <h2><span data-icon="mic"></span>Siri (iPhone)</h2>
               <span class="status-text" id="siri-status"></span>
             </div>
-            <p class="desc">Diga <b>“E aí Siri, anotar gasto”</b> e fale o valor, tipo “200 de gasolina”. A saída entra aqui com o seu nome.</p>
+            <p class="desc">Diga <b>“E aí Siri, gastei”</b> e, em seguida, o valor — tipo “200 de gasolina”. A saída entra aqui com o seu nome.</p>
             <div id="siri-body"></div>
           </div>
 
@@ -3022,10 +3022,10 @@
         '<button type="button" class="btn" data-act="siri-copy">' + icon('copy', 15) + 'Copiar</button></span></label>' +
         '<ol class="steps">' +
           '<li>No iPhone, abra o app <b>Atalhos</b> e toque em <b>+</b>.</li>' +
-          '<li>Adicione a ação <b>Pedir Entrada</b>. Em pergunta, escreva <b>O que você gastou?</b></li>' +
-          '<li>Adicione <b>Obter Conteúdo da URL</b> e cole o link acima. Toque na setinha e ajuste: Método <b>POST</b>, Corpo da Solicitação <b>JSON</b>, adicione um campo de texto com chave <code>texto</code> e valor <b>Entrada Fornecida</b>.</li>' +
+          '<li>Adicione a ação <b>Ditar Texto</b> (idioma <b>Português (Brasil)</b>, parar de ouvir <b>Após Pausa</b>).</li>' +
+          '<li>Adicione <b>Obter Conteúdo da URL</b> e cole o link acima. Toque na setinha e ajuste: Método <b>POST</b>, Corpo da Solicitação <b>JSON</b>, adicione um campo de texto com chave <code>texto</code> e, no valor, toque em <b>Variável</b> e escolha <b>Texto Ditado</b> (fica uma bolinha azul).</li>' +
           '<li>Adicione <b>Falar Texto</b> (ele já usa o <b>Conteúdo da URL</b>).</li>' +
-          '<li>Toque no nome no topo e renomeie para <b>Anotar gasto</b>. Pronto!</li>' +
+          '<li>Toque no nome no topo e renomeie para <b>Gastei</b>. Pronto: diga “E aí Siri, gastei” e, quando ela ouvir, “33 reais no mercado”.</li>' +
         '</ol>' +
         '<div class="row-between" style="margin-top:12px;">' +
           '<span class="hint">' + (others.length ? 'Também usam: ' + esc(others.join(', ')) : '') + '</span>' +
