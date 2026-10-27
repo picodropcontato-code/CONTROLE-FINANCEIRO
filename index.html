@@ -958,16 +958,22 @@
 
     // Mesma lista usada pelo bot (worker.js) — mantenha as duas iguais
     const CATEGORIES = [
-      { id: 'combustivel', name: 'Combustível', color: '#e8a33d', kw: ['gasolina', 'combustivel', 'etanol', 'alcool', 'diesel', 'posto', 'abasteci', 'abastecer', 'abastecimento', 'gnv'] },
-      { id: 'alimentacao', name: 'Alimentação', color: '#e5735a', kw: ['almoco', 'almocei', 'janta', 'jantar', 'jantei', 'lanche', 'lanchei', 'cafe', 'restaurante', 'ifood', 'pizza', 'hamburguer', 'burger', 'comida', 'marmita', 'padaria', 'acai', 'sorvete', 'refri', 'refrigerante', 'agua de coco', 'salgado', 'pastel', 'churrasco'] },
-      { id: 'mercado', name: 'Mercado', color: '#4fb37a', kw: ['mercado', 'supermercado', 'feira', 'atacadao', 'assai', 'hortifruti', 'acougue', 'sacolao', 'compras do mes'] },
-      { id: 'transporte', name: 'Transporte', color: '#4f8fe8', kw: ['uber', '99', 'taxi', 'onibus', 'metro', 'passagem', 'pedagio', 'estacionamento', 'oficina', 'mecanico', 'pneu', 'lava jato', 'lavagem', 'ipva', 'licenciamento', 'multa', 'revisao', 'troca de oleo'] },
-      { id: 'equipamento', name: 'Equipamento', color: '#9b7be8', kw: ['cabo', 'cabos', 'microfone', 'mic', 'lente', 'camera', 'cartao de memoria', 'cartao sd', 'bateria', 'baterias', 'tripe', 'hd', 'ssd', 'equipamento', 'led', 'fone', 'pilha', 'pilhas', 'adaptador', 'gimbal', 'case', 'software', 'plugin'] },
-      { id: 'casa', name: 'Casa', color: '#3fb6c4', kw: ['gas', 'botijao', 'agua', 'energia', 'conta de luz', 'limpeza', 'movel', 'moveis', 'reforma', 'material de construcao', 'condominio', 'internet'] },
-      { id: 'saude', name: 'Saúde', color: '#e46a9a', kw: ['farmacia', 'remedio', 'remedios', 'medico', 'consulta', 'exame', 'dentista', 'academia', 'hospital', 'plano de saude'] },
-      { id: 'lazer', name: 'Lazer', color: '#c9a93a', kw: ['cinema', 'show', 'bar', 'cerveja', 'viagem', 'passeio', 'netflix', 'spotify', 'jogo', 'festa', 'role', 'ingresso'] },
-      { id: 'compras', name: 'Compras', color: '#d07fd6', kw: ['roupa', 'roupas', 'tenis', 'sapato', 'presente', 'loja', 'shopee', 'mercado livre', 'amazon', 'shein', 'camisa', 'calca'] },
-      { id: 'outros', name: 'Outros', color: '#8d97a9', kw: [] }
+      { id: 'alimentacao', name: 'Alimentação', emoji: '🍔', color: '#e5735a', kw: ['almoco', 'almocei', 'almocamos', 'janta', 'jantar', 'jantei', 'jantamos', 'lanche', 'lanchei', 'lanchonete', 'cafe', 'cafezinho', 'cafe da manha', 'cafeteria', 'restaurante', 'ifood', 'i food', 'rappi', 'delivery', 'pizza', 'pizzaria', 'hamburguer', 'hamburgueria', 'burger', 'burguer', 'mc donalds', 'mcdonalds', 'mc donald', 'mequi', 'bk', 'burger king', 'subway', 'kfc', 'habibs', 'giraffas', 'spoleto', 'outback', 'fast food', 'comida', 'marmita', 'marmitex', 'quentinha', 'prato feito', 'pf', 'self service', 'rodizio', 'churrascaria', 'padaria', 'pao', 'acai', 'sorvete', 'sorveteria', 'refri', 'refrigerante', 'coca', 'suco', 'agua de coco', 'salgado', 'coxinha', 'pastel', 'pastelaria', 'esfiha', 'churrasco', 'espetinho', 'sushi', 'japones', 'temaki', 'hot dog', 'cachorro quente', 'doce', 'doceria', 'bolo', 'chocolate', 'bombom', 'bala', 'chiclete', 'salgadinho', 'biscoito', 'bolacha', 'tapioca', 'crepe', 'yakisoba', 'comida japonesa', 'comida chinesa', 'lanche da tarde'] },
+      { id: 'mercado', name: 'Mercado', emoji: '🛒', color: '#4fb37a', kw: ['mercado', 'supermercado', 'mercadinho', 'minimercado', 'feira', 'atacadao', 'atacarejo', 'assai', 'carrefour', 'pao de acucar', 'extra', 'tenda', 'savegnago', 'hortifruti', 'sacolao', 'quitanda', 'acougue', 'carne', 'frango', 'peixe', 'verdura', 'fruta', 'legume', 'ovo', 'leite', 'arroz', 'feijao', 'cafe em po', 'compras do mes', 'rancho', 'emporio'] },
+      { id: 'combustivel', name: 'Combustível', emoji: '⛽', color: '#e8a33d', kw: ['gasolina', 'combustivel', 'etanol', 'alcool', 'diesel', 'posto', 'posto de gasolina', 'abasteci', 'abastecer', 'abastecimento', 'abastecemos', 'gnv', 'shell', 'ipiranga', 'petrobras'] },
+      { id: 'transporte', name: 'Transporte', emoji: '🚗', color: '#4f8fe8', kw: ['uber', '99', '99pop', 'taxi', 'onibus', 'metro', 'trem', 'passagem de onibus', 'bilhete', 'pedagio', 'sem parar', 'estacionamento', 'zona azul', 'oficina', 'mecanico', 'pneu', 'borracharia', 'lava jato', 'lavagem', 'lava rapido', 'ipva', 'licenciamento', 'multa', 'revisao', 'troca de oleo', 'seguro do carro', 'carro', 'moto', 'bicicleta', 'bike', 'patinete', 'guincho', 'funilaria', 'alinhamento'] },
+      { id: 'equipamento', name: 'Equipamento', emoji: '🎛️', color: '#9b7be8', kw: ['cabo', 'microfone', 'mic', 'lente', 'camera', 'cartao de memoria', 'cartao sd', 'bateria', 'tripe', 'hd', 'hd externo', 'ssd', 'pendrive', 'equipamento', 'led', 'iluminacao', 'fone', 'fone de ouvido', 'headphone', 'pilha', 'adaptador', 'gimbal', 'case', 'software', 'plugin', 'licenca', 'notebook', 'computador', 'pc', 'monitor', 'teclado', 'mouse', 'celular', 'carregador', 'caixa de som', 'mesa de som', 'interface de audio', 'drone', 'estabilizador', 'flash', 'softbox', 'refletor', 'filtro', 'memoria', 'placa de video', 'projetor', 'tela', 'suporte', 'pedestal', 'p10', 'xlr', 'hdmi', 'usb'] },
+      { id: 'casa', name: 'Casa', emoji: '🏠', color: '#3fb6c4', kw: ['casa', 'gas', 'botijao', 'agua', 'conta de agua', 'energia', 'conta de luz', 'luz', 'cpfl', 'enel', 'sabesp', 'aluguel', 'condominio', 'iptu', 'internet', 'wifi', 'limpeza', 'produto de limpeza', 'faxina', 'diarista', 'lavanderia', 'movel', 'reforma', 'material de construcao', 'tinta', 'ferramenta', 'eletrodomestico', 'geladeira', 'fogao', 'microondas', 'maquina de lavar', 'cama', 'colchao', 'decoracao', 'utensilio', 'panela', 'lampada', 'conserto', 'encanador', 'eletricista', 'chaveiro', 'cortina', 'tapete', 'jardim', 'leroy', 'tok stok'] },
+      { id: 'saude', name: 'Saúde', emoji: '💊', color: '#e46a9a', kw: ['farmacia', 'drogaria', 'drogasil', 'droga raia', 'pague menos', 'remedio', 'medicamento', 'vitamina', 'suplemento', 'whey', 'creatina', 'medico', 'consulta', 'exame', 'dentista', 'ortodontista', 'aparelho', 'psicologo', 'terapia', 'fisioterapia', 'fisio', 'academia', 'smart fit', 'hospital', 'pronto socorro', 'plano de saude', 'convenio', 'unimed', 'clinica', 'laboratorio', 'oculos', 'otica', 'lente de contato', 'vacina', 'nutricionista'] },
+      { id: 'beleza', name: 'Beleza', emoji: '💇', color: '#f08ab5', kw: ['cabelo', 'cabeleireiro', 'cabeleireira', 'salao', 'salao de beleza', 'barbeiro', 'barbearia', 'corte', 'corte de cabelo', 'escova', 'progressiva', 'manicure', 'unha', 'depilacao', 'sobrancelha', 'cilios', 'maquiagem', 'make', 'perfume', 'cosmetico', 'shampoo', 'condicionador', 'creme', 'hidratante', 'desodorante', 'sabonete', 'estetica', 'massagem', 'skincare', 'boticario', 'natura', 'sephora', 'avon'] },
+      { id: 'lazer', name: 'Lazer', emoji: '🎉', color: '#c9a93a', kw: ['cinema', 'show', 'teatro', 'bar', 'balada', 'cerveja', 'chopp', 'bebida', 'vinho', 'drink', 'viagem', 'hotel', 'pousada', 'airbnb', 'passeio', 'parque', 'praia', 'jogo', 'game', 'steam', 'playstation', 'xbox', 'festa', 'role', 'ingresso', 'futebol', 'clube', 'boliche', 'karaoke', 'museu', 'voo', 'passagem aerea', 'aviao', 'evento', 'aniversario', 'beer', 'pub', 'boteco', 'botequim', 'cervejaria', 'happy hour', 'bebidas', 'bebi', 'tabacaria', 'narguile'] },
+      { id: 'assinaturas', name: 'Assinaturas', emoji: '📺', color: '#e05252', kw: ['assinatura', 'netflix', 'spotify', 'amazon prime', 'prime video', 'disney', 'disney plus', 'hbo', 'max', 'globoplay', 'youtube premium', 'deezer', 'apple music', 'icloud', 'google one', 'adobe', 'canva', 'chatgpt', 'claude', 'capcut', 'envato', 'plano do celular', 'recarga', 'recarga de celular', 'tim', 'vivo'] },
+      { id: 'compras', name: 'Compras', emoji: '🛍️', color: '#d07fd6', kw: ['roupa', 'camisa', 'camiseta', 'calca', 'bermuda', 'short', 'vestido', 'saia', 'blusa', 'jaqueta', 'casaco', 'meia', 'cueca', 'calcinha', 'tenis', 'sapato', 'sandalia', 'chinelo', 'bolsa', 'mochila', 'carteira', 'acessorio', 'relogio', 'presente', 'loja', 'shopping', 'shopee', 'mercado livre', 'amazon', 'shein', 'aliexpress', 'temu', 'magalu', 'magazine luiza', 'americanas', 'casas bahia', 'renner', 'riachuelo', 'c&a', 'cea', 'zara', 'centauro', 'netshoes'] },
+      { id: 'pets', name: 'Pets', emoji: '🐾', color: '#b5835a', kw: ['pet', 'petshop', 'pet shop', 'racao', 'veterinario', 'veterinaria', 'vacina do cachorro', 'vacina do gato', 'banho e tosa', 'tosa', 'cachorro', 'gato', 'areia do gato', 'petisco', 'petz', 'cobasi'] },
+      { id: 'educacao', name: 'Educação', emoji: '📚', color: '#5aa9e6', kw: ['escola', 'faculdade', 'curso', 'livro', 'apostila', 'material escolar', 'caderno', 'caneta', 'lapis', 'mensalidade da escola', 'mensalidade da faculdade', 'matricula', 'aula', 'professor', 'udemy', 'hotmart', 'alura', 'idioma', 'ingles', 'workshop', 'mentoria'] },
+      { id: 'igreja', name: 'Igreja e doações', emoji: '⛪', color: '#7d8cf0', kw: ['igreja', 'dizimo', 'oferta', 'doacao', 'doei', 'contribuicao', 'missao', 'missoes', 'caridade', 'vaquinha', 'campanha', 'retiro', 'congresso', 'acampamento'] },
+      { id: 'taxas', name: 'Taxas e impostos', emoji: '🧾', color: '#8e9bb0', kw: ['taxa', 'tarifa', 'juros', 'banco', 'anuidade', 'iof', 'imposto', 'darf', 'mei', 'inss', 'cartorio', 'documento', 'boleto', 'emprestimo', 'parcela do emprestimo', 'cheque especial', 'fatura'] },
+      { id: 'outros', name: 'Outros', emoji: '📦', color: '#8d97a9', kw: [] }
     ];
 
     const DEFAULT_FIREBASE_CONFIG = {
@@ -1304,16 +1310,20 @@
       return ' ' + String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
     }
     function catInfo(id) { return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1]; }
-    // Escolhe a categoria cuja palavra-chave mais longa aparece no texto ("mercado livre" vence "mercado")
+    // Escolhe a categoria pela palavra-chave mais longa encontrada; entende plural ("lanches" → "lanche")
     function categorize(text) {
-      const t = normText(text);
+      const plain = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const base = ' ' + plain(text).replace(/[^a-z0-9&]+/g, ' ').trim() + ' ';
+      const sing = w => (w.length < 4 ? w : w.replace(/(oes|aes)$/, 'ao').replace(/ais$/, 'al').replace(/eis$/, 'el').replace(/ns$/, 'm').replace(/(r|z|s)es$/, '$1').replace(/s$/, ''));
+      const alt = ' ' + base.trim().split(' ').map(sing).join(' ') + ' ';
+      const has = k => base.includes(' ' + k + ' ') || alt.includes(' ' + k + ' ');
       let best = null, len = 0;
-      CATEGORIES.forEach(c => {
-        c.kw.concat([normText(c.name).trim()]).forEach(k => {
-          if (k && k.length > len && t.indexOf(' ' + k + ' ') !== -1) { best = c; len = k.length; }
-        });
-      });
-      return best || catInfo('outros');
+      for (const c of CATEGORIES) {
+        for (const k of c.kw) if (k && k.length > len && has(k)) { best = c; len = k.length; }
+      }
+      // Nome da categoria ("compras", "lazer"...) só vale se nenhuma palavra específica apareceu
+      if (!best) best = CATEGORIES.find(c => c.id !== 'outros' && has(plain(c.name))) || null;
+      return best || CATEGORIES[CATEGORIES.length - 1];
     }
     function outflowsForMonth(monthDate) {
       const mKey = monthKey(monthDate);
