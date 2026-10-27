@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%233f74f0'/%3E%3Cpath d='M43 21C39 16.5 32.5 15 26.5 18.5C18.5 23 17 35.5 23.5 43C29 49 38.5 48.5 43 43' fill='none' stroke='%23fff' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='26' y1='32' x2='38' y2='32' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-title" content="Financeiro">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -829,6 +830,16 @@
             <div id="siri-body"></div>
           </div>
 
+          <!-- Notificações -->
+          <div class="card">
+            <div class="card-head">
+              <h2><span data-icon="bell"></span>Notificações</h2>
+              <span class="status-text" id="push-status"></span>
+            </div>
+            <p class="desc">Receba um aviso no celular quando um gasto for anotado pelo WhatsApp ou pela Siri — e as respostas do bot que não chegarem no WhatsApp.</p>
+            <div id="push-body"></div>
+          </div>
+
           <!-- Backup -->
           <div class="card">
             <div class="card-head">
@@ -954,6 +965,9 @@
     const OUT_PATH = 'picodrop_outflows';
     // Atalho da Siri: chaves pessoais ficam aqui; o bot valida cada pedido
     const SC_PATH = 'picodrop_shortcuts';
+    const PUSH_PATH = 'picodrop_shortcuts/_push'; // dentro dos atalhos: as regras atuais já liberam (família escreve, bot lê)
+    const VAPID_PUBLIC = 'BBS1oXdhH9dxvTxggESXxMUesUhGHhKyJfWUp5Sw2ezVw_WO4y7LFat9AYFT-PVONWRbd0OiKfFfW8vah5MKyKE';
+    const PUSH_ID_KEY = 'pd_push_id_v1';
     const BOT_URL = 'https://financeiro-bot.picodropcontato.workers.dev';
 
     // Mesma lista usada pelo bot (worker.js) — mantenha as duas iguais
@@ -1042,7 +1056,8 @@
       chat: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3Z"/>',
       user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
       mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/>',
-      copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'
+      copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+      bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
     };
 
     /* =====================================================================
@@ -2301,6 +2316,7 @@
         if (o && o.source === 'whatsapp') lastWa = Math.max(lastWa, Number(o.createdAt) || 0);
       });
       renderSiri();
+      renderPush();
       $('#wa-status').innerHTML = lastWa
         ? '<span class="dot ok"></span>Último gasto ' + formatSyncTime(lastWa)
         : '<span class="dot"></span>Nenhuma mensagem ainda';
@@ -2800,7 +2816,8 @@
       try { if (cloud.connRef) cloud.connRef.off(); } catch (e) {}
       try { if (cloud.outRef) cloud.outRef.off(); } catch (e) {}
       try { if (cloud.scRef) cloud.scRef.off(); } catch (e) {}
-      cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.scRef = null; cloud.outLoaded = false;
+      try { if (cloud.pushRef) cloud.pushRef.off(); } catch (e) {}
+      cloud.ref = null; cloud.connRef = null; cloud.outRef = null; cloud.scRef = null; cloud.pushRef = null; cloud.outLoaded = false;
       cloud.listening = false; cloud.ready = false;
     }
 
@@ -2902,6 +2919,8 @@
         cloud.listening = true;
         cloud.scRef = db.ref(SC_PATH);
         cloud.scRef.on('value', s => { state.shortcuts = s.val() || {}; renderSiri(); }, e => console.warn('Sem acesso aos atalhos:', e));
+        cloud.pushRef = db.ref(PUSH_PATH);
+        cloud.pushRef.on('value', s => { state.pushSubs = s.val() || {}; renderPush(); }, e => console.warn('Sem acesso às notificações:', e));
         cloud.outRef = db.ref(OUT_PATH);
         cloud.outRef.on('value', s => {
           try { applyOutflows(s.val()); refreshModalSafe(); } catch (e) { console.warn('Erro ao aplicar saídas:', e); }
@@ -3063,6 +3082,93 @@
       catch (e) { toast('Não foi possível revogar', { tone: 'danger' }); }
     }
 
+    /* ---------- Notificações (Web Push) ---------- */
+    const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone = () => window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    function myPushId() { try { return localStorage.getItem(PUSH_ID_KEY); } catch (e) { return null; } }
+    function b64uToBytes(s) {
+      const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+      return Uint8Array.from(b, c => c.charCodeAt(0));
+    }
+    function renderPush() {
+      const body = $('#push-body');
+      if (!body) return;
+      const st = $('#push-status');
+      const subs = state.pushSubs || {};
+      const id = myPushId();
+      const mine = id && subs[id];
+      const devices = Object.keys(subs).map(k => subs[k]).filter(Boolean);
+      const whoList = [...new Set(devices.map(d => d.who).filter(Boolean))];
+      if (st) st.innerHTML = mine ? '<span class="dot ok"></span>Ativado neste aparelho' : '<span class="dot"></span>Desativado aqui';
+      if (!state.user || !cloud.ready) {
+        body.innerHTML = '<div class="muted" style="font-size:13px;">Entre com o Google e conecte à nuvem para configurar.</div>';
+        return;
+      }
+      if (!pushSupported()) {
+        body.innerHTML = '<div class="hint">' + (isIOS() && !isStandalone()
+          ? 'No iPhone, as notificações só funcionam pelo <b>ícone na tela de início</b>: no Safari toque em <b>Compartilhar → Adicionar à Tela de Início</b>, abra o site por esse ícone e volte aqui. (Precisa do iOS 16.4 ou mais novo.)'
+          : 'Este navegador não suporta notificações. No iPhone, use o site pelo ícone da tela de início (iOS 16.4+).') + '</div>';
+        return;
+      }
+      const others = mine ? mine.others !== false : true;
+      body.innerHTML = (mine
+        ? '<label class="toggle"><input type="checkbox" id="push-others"' + (others ? ' checked' : '') + '><span class="toggle-ui"></span><span>Avisar também os gastos das outras pessoas</span></label>' +
+          '<div class="btn-row" style="margin-top:8px;"><button type="button" class="btn btn-sm" data-act="push-test">' + icon('bell', 14) + 'Testar</button>' +
+          '<button type="button" class="btn btn-danger-ghost btn-sm" data-act="push-off">Desativar neste aparelho</button></div>'
+        : '<button type="button" class="btn btn-primary btn-sm" data-act="push-on">' + icon('bell', 14) + 'Ativar neste aparelho</button>' +
+          (typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '<div class="hint" style="margin-top:8px;">As notificações estão bloqueadas. No iPhone: Ajustes → Notificações → Financeiro → Permitir.</div>' : '')) +
+        (whoList.length ? '<div class="hint" style="margin-top:10px;">Aparelhos ativos: ' + devices.length + ' (' + esc(whoList.join(', ')) + ')</div>' : '');
+      const t = $('#push-others');
+      if (t) t.addEventListener('change', async e => {
+        try { await cloud.app.database().ref(PUSH_PATH + '/' + id + '/others').set(e.target.checked); toast(e.target.checked ? 'Vai avisar os gastos de todos' : 'Só as suas respostas'); }
+        catch (err) { toast('Não foi possível salvar', { tone: 'danger' }); }
+      });
+    }
+    async function pushEnable() {
+      if (!cloud.ready || !cloud.app || !state.user) { toast('Conecte-se à nuvem primeiro', { tone: 'danger' }); return; }
+      if (!pushSupported()) { renderPush(); return; }
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') { toast('Permissão de notificação negada', { tone: 'danger' }); renderPush(); return; }
+        const reg = await navigator.serviceWorker.register('sw.js');
+        await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(VAPID_PUBLIC) });
+        const j = sub.toJSON();
+        const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(j.endpoint));
+        const id = Array.from(new Uint8Array(h)).slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
+        await cloud.app.database().ref(PUSH_PATH + '/' + id).set({
+          who: firstName(), email: state.user.email, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+          others: true, device: (isIOS() ? 'iPhone' : navigator.platform || 'Navegador'), createdAt: Date.now()
+        });
+        try { localStorage.setItem(PUSH_ID_KEY, id); } catch (e) {}
+        reg.showNotification('Notificações ativadas ✅', { body: 'Você vai receber um aviso quando um gasto for anotado.', icon: 'apple-touch-icon.png', tag: 'ativado' });
+        toast('Notificações ativadas');
+        renderPush();
+      } catch (e) {
+        console.warn(e);
+        toast('Não foi possível ativar: ' + (e && e.message ? e.message : e), { tone: 'danger' });
+      }
+    }
+    async function pushDisable() {
+      const id = myPushId();
+      try {
+        if (id && cloud.app) await cloud.app.database().ref(PUSH_PATH + '/' + id).remove();
+        const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+        const sub = reg && await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      } catch (e) { console.warn(e); }
+      try { localStorage.removeItem(PUSH_ID_KEY); } catch (e) {}
+      toast('Notificações desativadas neste aparelho');
+      renderPush();
+    }
+    async function pushTest() {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (!reg) { toast('Ative as notificações primeiro', { tone: 'danger' }); return; }
+      reg.showNotification('Teste do Controle Financeiro 🔔', { body: 'Se você está vendo isto, as notificações funcionam neste aparelho.', icon: 'apple-touch-icon.png', tag: 'teste' });
+    }
+
     function renderAccount() {
       const el = $('#acct');
       if (!el) return;
@@ -3192,6 +3298,9 @@
           case 'sign-in': signInGoogle(); break;
           case 'siri-gen': siriGenerate(); break;
           case 'siri-revoke': siriRevoke(); break;
+          case 'push-on': pushEnable(); break;
+          case 'push-off': pushDisable(); break;
+          case 'push-test': pushTest(); break;
           case 'siri-copy': {
             const inp = $('#siri-link');
             try { await navigator.clipboard.writeText(inp.value); toast('Link copiado'); }
