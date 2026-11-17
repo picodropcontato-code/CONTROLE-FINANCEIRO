@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Controle Financeiro</title>
-  <meta name="theme-color" content="#0a0c11">
+  <meta name="theme-color" content="#f3f4f1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%233f74f0'/%3E%3Cpath d='M43 21C39 16.5 32.5 15 26.5 18.5C18.5 23 17 35.5 23.5 43C29 49 38.5 48.5 43 43' fill='none' stroke='%23fff' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='26' y1='32' x2='38' y2='32' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -13,10 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Financeiro">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap">
   <script>
     try {
-      var t = localStorage.getItem('pd_theme_v1') || 'dark';
+      // Novo visual: na primeira abertura depois da mudança, começa no tema claro (dá para trocar em Ajustes)
+      if (!localStorage.getItem('pd_theme_b')) { localStorage.setItem('pd_theme_v1', 'light'); localStorage.setItem('pd_theme_b', '1'); }
+      var t = localStorage.getItem('pd_theme_v1') || 'light';
       if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
     } catch (e) {}
@@ -24,54 +26,68 @@
   <style>
     /* ================= TOKENS ================= */
     :root {
-      --bg: #0a0c11;
-      --surface: #0f1218;
-      --card: #141821;
-      --card-2: #1a1f2a;
-      --hover: #1e2431;
+      /* Escuro (versão escura do visual "Leve") */
+      --bg: #0f1211;
+      --surface: #151918;
+      --card: #191e1c;
+      --card-2: #212725;
+      --hover: #262d2a;
       --line: rgba(255, 255, 255, 0.07);
       --line-2: rgba(255, 255, 255, 0.13);
-      --text: #e9edf4;
-      --muted: #8d97a9;
-      --dim: #5f697b;
-      --primary: #5b8cff;
-      --primary-strong: #3f74f0;
-      --primary-soft: rgba(91, 140, 255, 0.14);
-      --primary-text: #8fb1ff;
-      --green: #34c98b;
-      --green-soft: rgba(52, 201, 139, 0.13);
-      --amber: #f0b44c;
-      --amber-soft: rgba(240, 180, 76, 0.14);
-      --red: #f07070;
-      --red-soft: rgba(240, 112, 112, 0.13);
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -14px rgba(0, 0, 0, 0.7);
+      --text: #eef1ec;
+      --muted: #a3aaa5;
+      --dim: #7f8783;
+      --primary: #3dbb86;
+      --primary-strong: #2fa574;
+      --primary-soft: rgba(61, 187, 134, 0.15);
+      --primary-text: #5fd19d;
+      --on-primary: #08130e;
+      --info: #7aa2ff;
+      --info-soft: rgba(122, 162, 255, 0.15);
+      --green: #3dbb86;
+      --green-soft: rgba(61, 187, 134, 0.14);
+      --amber: #e3a64a;
+      --amber-soft: rgba(227, 166, 74, 0.15);
+      --red: #ef7a6f;
+      --red-soft: rgba(239, 122, 111, 0.14);
+      --in-soft: rgba(61, 187, 134, 0.14);
+      --out-soft: rgba(227, 140, 74, 0.16);
+      --out-text: #f0a868;
+      --shadow: none;
       --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, 0.7);
-      --r: 14px;
+      --r: 20px;
       --topbar: 60px;
       color-scheme: dark;
     }
     :root[data-theme="light"] {
-      --bg: #f4f6f9;
+      /* Claro — visual "Leve" (opção B) */
+      --bg: #f3f4f1;
       --surface: #ffffff;
       --card: #ffffff;
-      --card-2: #f5f7fa;
-      --hover: #eef2f7;
-      --line: rgba(16, 24, 40, 0.08);
-      --line-2: rgba(16, 24, 40, 0.15);
-      --text: #101828;
-      --muted: #5d6779;
-      --dim: #98a2b3;
-      --primary: #2f6bed;
-      --primary-strong: #2459cc;
-      --primary-soft: rgba(47, 107, 237, 0.10);
-      --primary-text: #2459cc;
-      --green: #12a26a;
-      --green-soft: rgba(18, 162, 106, 0.10);
-      --amber: #c27c0e;
-      --amber-soft: rgba(194, 124, 14, 0.11);
-      --red: #d64545;
-      --red-soft: rgba(214, 69, 69, 0.10);
-      --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 6px 20px -12px rgba(16, 24, 40, 0.15);
+      --card-2: #f4f5f2;
+      --hover: #eef0eb;
+      --line: rgba(22, 25, 31, 0.08);
+      --line-2: rgba(22, 25, 31, 0.15);
+      --text: #16191f;
+      --muted: #4d5463;
+      --dim: #6b7282;
+      --primary: #0f7a52;
+      --primary-strong: #0b6142;
+      --primary-soft: rgba(15, 122, 82, 0.10);
+      --primary-text: #0f6e4a;
+      --on-primary: #ffffff;
+      --info: #2457c5;
+      --info-soft: rgba(36, 87, 197, 0.10);
+      --green: #0f7a52;
+      --green-soft: rgba(15, 122, 82, 0.10);
+      --amber: #a15c07;
+      --amber-soft: rgba(193, 120, 14, 0.12);
+      --red: #c23b32;
+      --red-soft: rgba(194, 59, 50, 0.09);
+      --in-soft: #e8f4ee;
+      --out-soft: #fbeee4;
+      --out-text: #9a4a10;
+      --shadow: none;
       --shadow-lg: 0 24px 60px -12px rgba(16, 24, 40, 0.25);
       color-scheme: light;
     }
@@ -82,7 +98,7 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
@@ -117,8 +133,7 @@
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; font-size: 15px; white-space: nowrap; }
     .brand-mark {
       width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
-      background: linear-gradient(145deg, var(--primary), var(--primary-strong)); color: #fff;
-      box-shadow: 0 4px 14px -4px var(--primary);
+      background: var(--primary); color: var(--on-primary);
     }
     .topnav { display: flex; gap: 2px; margin-left: 12px; }
     .topnav-btn {
@@ -167,7 +182,7 @@
     .btn:hover { background: var(--hover); }
     .btn:active { transform: scale(.98); }
     .btn:disabled { opacity: .55; pointer-events: none; }
-    .btn-primary { background: var(--primary); border-color: transparent; color: #fff; box-shadow: 0 6px 16px -8px var(--primary); }
+    .btn-primary { background: var(--primary); border-color: transparent; color: var(--on-primary); }
     .btn-primary:hover { background: var(--primary-strong); }
     .btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
     .btn-ghost:hover { background: var(--hover); color: var(--text); }
@@ -182,10 +197,11 @@
     /* ================= CARDS ================= */
     .card {
       background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
-      box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 18px; min-width: 0;
+      box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 14px; min-width: 0;
     }
+    :root[data-theme="light"] .card, :root[data-theme="light"] .kpi { border-color: transparent; }
     .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-    .card-head h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
+    .card-head h2 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
     .card-head h2 .ic { color: var(--muted); }
     .card-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .desc { margin: -6px 0 16px; color: var(--muted); font-size: 13px; }
@@ -217,7 +233,7 @@
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
     .lg { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
     .lg-paid { background: var(--green); }
-    .lg-open { background: var(--primary); }
+    .lg-open { background: var(--info); }
     .lg-warn { background: var(--amber); }
     .lg-exp { background: var(--red); }
     .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
@@ -230,7 +246,7 @@
     .cal-cell:hover { border-color: var(--line-2); background: var(--hover); }
     .cal-cell.out { opacity: .38; }
     .cal-cell.today { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
-    .cal-cell.today .cal-num { background: var(--primary); color: #fff; }
+    .cal-cell.today .cal-num { background: var(--primary); color: var(--on-primary); }
     .cal-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
     .cal-num { font-size: 12.5px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex-shrink: 0; }
     .cal-cell.has .cal-num { color: var(--text); }
@@ -238,14 +254,14 @@
     .cal-pills { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .pill {
       font-size: 11px; font-weight: 550; padding: 3px 6px 3px 7px; border-radius: 6px;
-      background: var(--primary-soft); color: var(--primary-text); border-left: 2px solid var(--primary);
+      background: var(--info-soft); color: var(--info); border-left: 2px solid var(--info);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .pill.paid { background: var(--green-soft); color: var(--green); border-left-color: var(--green); }
     .pill.warn { background: var(--amber-soft); color: var(--amber); border-left-color: var(--amber); }
     .pill-more { font-size: 10.5px; color: var(--dim); padding-left: 4px; }
     .cal-dots { display: none; gap: 3px; justify-content: center; }
-    .cal-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+    .cal-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--info); }
     .cal-dots i.paid { background: var(--green); }
     .cal-dots i.warn { background: var(--amber); }
 
@@ -300,12 +316,9 @@
     /* ================= FINANCEIRO ================= */
     .fin-top { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; margin-bottom: 18px; }
     .fin-top > .card { margin: 0; }
-    .hero {
-      background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--primary) 20%, var(--card)) 0%, var(--card) 62%);
-      display: flex; flex-direction: column;
-    }
+    .hero { display: flex; flex-direction: column; }
     .hero-label { font-size: 13px; color: var(--muted); font-weight: 500; }
-    .hero-value { font-size: 36px; font-weight: 800; letter-spacing: -0.035em; margin: 6px 0 14px; line-height: 1.1; }
+    .hero-value { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin: 4px 0 16px; line-height: 1.1; }
     .hero-value.neg { color: var(--red); }
     .hero-break { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
     .hero-break span { display: inline-flex; align-items: center; gap: 6px; }
@@ -496,6 +509,90 @@
     .toast.out { opacity: 0; transform: translateY(6px); }
     @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
 
+    /* ================= NOVO VISUAL (Início / Gastos / seções recolhíveis) ================= */
+    .home { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 18px; align-items: start; }
+    .home-col { display: flex; flex-direction: column; min-width: 0; }
+    .hero-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+    .hero-value.neg { color: var(--red); }
+    .io { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .io > div { border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .io span { font-size: 12px; font-weight: 700; }
+    .io b { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .io .in { background: var(--in-soft); } .io .in span { color: var(--primary-text); }
+    .io .out { background: var(--out-soft); } .io .out span { color: var(--out-text); }
+    .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .tile {
+      background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; text-align: left;
+      display: flex; flex-direction: column; gap: 4px; min-width: 0; transition: background .15s;
+    }
+    :root[data-theme="light"] .tile { border-color: transparent; }
+    .tile:hover { background: var(--hover); }
+    .tile-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+    .tile-value { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile-sub.warn { color: var(--out-text); }
+    .tile-sub.ok { color: var(--primary-text); }
+    .bars { display: flex; flex-direction: column; gap: 12px; }
+    .bar-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 700; }
+    .bar-top span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-top em { font-style: normal; color: var(--dim); font-weight: 600; font-size: 12px; }
+    .bar-track { height: 8px; border-radius: 99px; background: var(--card-2); margin-top: 6px; overflow: hidden; }
+    .bar-track > div { height: 100%; border-radius: inherit; background: var(--primary); transition: width .4s ease; }
+    .sec-title { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 4px 4px 10px; }
+    .cat-ic {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; font-size: 18px; line-height: 1;
+      background: color-mix(in srgb, var(--c, #888) 16%, var(--card));
+    }
+    .day-head { font-size: 12px; font-weight: 800; color: var(--muted); padding: 14px 0 4px; }
+    .day-head:first-child { padding-top: 2px; }
+    .out-list .row + .day-head { border-top: 0; }
+    .out-list > .row + .row { border-top: 1px solid var(--line); }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+    .chips button {
+      height: 36px; padding: 0 14px; border-radius: 99px; font-size: 13px; font-weight: 700;
+      background: var(--card); color: var(--text); border: 1px solid var(--line-2);
+    }
+    .chips button.active { background: var(--text); color: var(--bg); border-color: transparent; }
+    .out-sum { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 4px 14px; }
+    .out-sum b { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+    .out-sum span { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .gastos { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 18px; align-items: start; }
+    .ag-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .ag-strip > div { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; min-width: 0; }
+    :root[data-theme="light"] .ag-strip > div { border-color: transparent; }
+    .ag-strip span { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .ag-strip b { display: block; font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ag-strip small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Seções que abrem e fecham */
+    .card.fold { padding: 0; }
+    .fold > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px;
+      padding: 16px 18px; margin: 0; border-radius: var(--r); min-height: 56px;
+    }
+    .fold > summary::-webkit-details-marker { display: none; }
+    .fold > summary h2 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 9px; flex: 0 0 auto; white-space: nowrap; }
+    .fold > summary h2 .ic { color: var(--muted); }
+    .fold > summary::after {
+      content: ''; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg); transition: transform .2s; flex-shrink: 0; margin: -3px 4px 0 0;
+    }
+    .fold[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+    .fold > summary:hover { background: var(--hover); }
+    .fold-meta { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+    .fold-meta .dot { vertical-align: 1px; margin-right: 6px; }
+    .fold > summary:not(:has(.fold-meta))::after { margin-left: auto; }
+    .fold-body { padding: 0 18px 16px; }
+    .fold-body > .desc { margin: 0 0 14px; }
+    .fold-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .settings-list { max-width: 760px; display: flex; flex-direction: column; }
+    .settings-list .fold { margin-bottom: 10px; }
+    .theme-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .theme-row h2 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 9px; }
+    @media (max-width: 920px) {
+      .home, .gastos { grid-template-columns: 1fr; gap: 0; }
+    }
+
     /* ================= BOTTOM NAV / RESPONSIVE ================= */
     .bottomnav { display: none; }
     @media (max-width: 920px) {
@@ -575,8 +672,9 @@
         <span class="brand-name">Controle Financeiro</span>
       </div>
       <nav class="topnav" aria-label="Seções">
+        <button class="topnav-btn nav-btn" type="button" data-act="tab" data-tab="inicio"><span data-icon="home"></span>Início</button>
+        <button class="topnav-btn nav-btn" type="button" data-act="tab" data-tab="gastos"><span data-icon="wallet"></span>Gastos</button>
         <button class="topnav-btn nav-btn" type="button" data-act="tab" data-tab="agenda"><span data-icon="calendar"></span>Agenda</button>
-        <button class="topnav-btn nav-btn" type="button" data-act="tab" data-tab="fin"><span data-icon="wallet"></span>Financeiro</button>
         <button class="topnav-btn nav-btn" type="button" data-act="tab" data-tab="ajustes"><span data-icon="settings"></span>Ajustes</button>
       </nav>
       <button class="cloud-pill" id="cloud-pill" type="button" data-act="tab" data-tab="ajustes" title="Status da nuvem">
@@ -604,9 +702,91 @@
       </div>
     </div>
 
+    <!-- ============ INÍCIO ============ -->
+    <section class="view" id="view-inicio">
+      <div class="home">
+        <div class="home-col">
+          <div class="card hero" id="fin-hero"></div>
+          <div class="tiles" id="home-tiles"></div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Para onde foi</h2>
+              <button class="link-btn" type="button" data-act="tab" data-tab="gastos">Ver gastos</button>
+            </div>
+            <div id="home-cats"></div>
+          </div>
+          <div class="card">
+            <div class="card-head" style="margin-bottom:4px;">
+              <h2>Últimos gastos</h2>
+              <button class="link-btn" type="button" data-act="tab" data-tab="gastos">Ver todos</button>
+            </div>
+            <div class="list out-list" id="home-recent"></div>
+          </div>
+        </div>
+
+        <div class="home-col">
+          <div class="sec-title">Detalhes do mês</div>
+          <details class="card fold" id="fold-contas">
+            <summary><h2><span data-icon="receipt"></span>Contas fixas</h2><span class="fold-meta" id="fold-contas-meta"></span></summary>
+            <div class="fold-body">
+              <div class="list" id="fin-expenses"></div>
+              <div class="btn-row"><button class="btn btn-sm" type="button" data-act="add-expense"><span data-icon="plus"></span>Nova conta</button></div>
+            </div>
+          </details>
+          <details class="card fold" id="fold-entradas">
+            <summary><h2><span data-icon="arrowUp"></span>Entradas</h2><span class="fold-meta" id="fold-entradas-meta"></span></summary>
+            <div class="fold-body">
+              <div class="list" id="fin-incomes"></div>
+              <div class="btn-row"><button class="btn btn-sm" type="button" data-act="add-income"><span data-icon="plus"></span>Nova entrada</button></div>
+            </div>
+          </details>
+          <details class="card fold" id="fold-trab">
+            <summary><h2><span data-icon="briefcase"></span>Trabalhos</h2><span class="fold-meta" id="fold-trab-meta"></span></summary>
+            <div class="fold-body">
+              <div class="fold-tools">
+                <div class="seg" id="fin-filter" role="group" aria-label="Filtrar trabalhos">
+                  <button type="button" data-act="fin-filter" data-v="all">Todos</button>
+                  <button type="button" data-act="fin-filter" data-v="unpaid">A receber</button>
+                  <button type="button" data-act="fin-filter" data-v="paid">Pagos</button>
+                </div>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="mark-all-paid" id="btn-mark-all"><span data-icon="check"></span>Marcar todos como pagos</button>
+              </div>
+              <div class="list" id="fin-works"></div>
+            </div>
+          </details>
+          <details class="card fold" id="fold-chart">
+            <summary><h2><span data-icon="chart"></span>Últimos 6 meses</h2></summary>
+            <div class="fold-body">
+              <div class="legend" style="display:flex; margin-bottom:10px;">
+                <span><i class="lg" style="background:var(--primary)"></i>Receitas</span>
+                <span><i class="lg lg-exp"></i>Despesas</span>
+              </div>
+              <div class="chart" id="fin-chart"></div>
+              <div id="fin-history" style="margin-top:14px;"></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ GASTOS ============ -->
+    <section class="view" id="view-gastos" hidden>
+      <div class="out-sum" id="out-summary"></div>
+      <div class="chips" id="out-filter" role="group" aria-label="Filtrar por pessoa"></div>
+      <div class="gastos">
+        <div class="card" style="padding-top:8px; padding-bottom:8px;">
+          <div class="list out-list" id="fin-outflows"></div>
+        </div>
+        <details class="card fold" id="fold-cats">
+          <summary><h2><span data-icon="chart"></span>Por categoria</h2></summary>
+          <div class="fold-body"><div id="fin-out-cats"></div></div>
+        </details>
+      </div>
+    </section>
+
     <!-- ============ AGENDA ============ -->
-    <section class="view" id="view-agenda">
-      <div class="kpis" id="ag-kpis"></div>
+    <section class="view" id="view-agenda" hidden>
+      <div class="ag-strip" id="ag-kpis"></div>
 
       <div class="card cal-card">
         <div class="cal-head">
@@ -625,90 +805,72 @@
 
       <div class="card">
         <div class="card-head">
-          <h2><span data-icon="briefcase"></span>Trabalhos do mês</h2>
+          <h2>Trabalhos do mês</h2>
           <span class="muted" id="ag-list-count" style="font-size:12.5px;"></span>
         </div>
         <div class="list" id="ag-list"></div>
       </div>
     </section>
 
-    <!-- ============ FINANCEIRO ============ -->
-    <section class="view" id="view-fin" hidden>
-      <div class="fin-top">
-        <div class="card hero" id="fin-hero"></div>
-        <div class="card">
-          <div class="card-head">
-            <h2><span data-icon="chart"></span>Últimos 6 meses</h2>
-            <div class="legend" style="display:flex;">
-              <span><i class="lg lg-open"></i>Receitas</span>
-              <span><i class="lg lg-exp"></i>Despesas</span>
-            </div>
-          </div>
-          <div class="chart" id="fin-chart"></div>
-        </div>
-      </div>
-
-      <div class="kpis" id="fin-kpis"></div>
-
-      <div class="card">
-        <div class="card-head">
-          <h2><span data-icon="cart"></span>Saídas</h2>
-          <div class="card-tools">
-            <span class="muted" id="out-count" style="font-size:12.5px;"></span>
-            <button class="btn btn-sm" type="button" data-act="add-outflow"><span data-icon="plus"></span>Nova saída</button>
-          </div>
-        </div>
-        <div class="out-layout">
-          <div class="list" id="fin-outflows"></div>
-          <div class="out-side" id="fin-out-cats"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <h2><span data-icon="briefcase"></span>Trabalhos</h2>
-          <div class="card-tools">
-            <button class="btn btn-ghost btn-sm" type="button" data-act="mark-all-paid" id="btn-mark-all"><span data-icon="check"></span>Marcar todos como pagos</button>
-            <div class="seg" id="fin-filter" role="group" aria-label="Filtrar trabalhos">
-              <button type="button" data-act="fin-filter" data-v="all">Todos</button>
-              <button type="button" data-act="fin-filter" data-v="unpaid">A receber</button>
-              <button type="button" data-act="fin-filter" data-v="paid">Pagos</button>
-            </div>
-          </div>
-        </div>
-        <div class="list" id="fin-works"></div>
-      </div>
-
-      <div class="grid-2 section-gap">
-        <div class="card">
-          <div class="card-head">
-            <h2><span data-icon="arrowUp"></span>Entradas</h2>
-            <button class="btn btn-sm" type="button" data-act="add-income"><span data-icon="plus"></span>Nova entrada</button>
-          </div>
-          <div class="list" id="fin-incomes"></div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <h2><span data-icon="receipt"></span>Contas fixas</h2>
-            <button class="btn btn-sm" type="button" data-act="add-expense"><span data-icon="plus"></span>Nova conta</button>
-          </div>
-          <div class="list" id="fin-expenses"></div>
-        </div>
-      </div>
-
-      <div class="card subtle" id="fin-history"></div>
-    </section>
-
     <!-- ============ AJUSTES ============ -->
     <section class="view" id="view-ajustes" hidden>
-      <div class="settings">
-        <div class="settings-col">
-          <!-- Serviços -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="tag"></span>Serviços e cachês</h2>
-              <button class="btn btn-sm" type="button" data-act="add-service"><span data-icon="plus"></span>Novo serviço</button>
+      <div class="settings-list">
+        <!-- Aparência -->
+        <div class="card" style="padding:14px 18px;">
+          <div class="theme-row">
+            <h2><span data-icon="sun"></span>Tema</h2>
+            <div class="seg" id="theme-seg" role="group" aria-label="Tema">
+              <button type="button" data-act="theme" data-v="light">Claro</button>
+              <button type="button" data-act="theme" data-v="dark">Escuro</button>
+              <button type="button" data-act="theme" data-v="system">Automático</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Conta -->
+        <details class="card fold">
+          <summary><h2><span data-icon="user"></span>Conta</h2></summary>
+          <div class="fold-body"><div class="acct" id="acct"></div></div>
+        </details>
+
+        <!-- Notificações -->
+        <details class="card fold">
+          <summary><h2><span data-icon="bell"></span>Notificações</h2><span class="fold-meta status-text" id="push-status"></span></summary>
+          <div class="fold-body">
+            <p class="desc">Receba um aviso no celular quando um gasto for anotado pelo WhatsApp ou pela Siri — e as respostas do bot que não chegarem no WhatsApp.</p>
+            <div id="push-body"></div>
+          </div>
+        </details>
+
+        <!-- WhatsApp -->
+        <details class="card fold">
+          <summary><h2><span data-icon="chat"></span>WhatsApp</h2><span class="fold-meta status-text" id="wa-status"></span></summary>
+          <div class="fold-body">
+            <p class="desc">Mande seus gastos (texto ou áudio) para o número do bot e eles entram em Gastos, com categoria automática.</p>
+            <div class="examples">
+              <span>200 gasolina</span><span>gastei 35,90 no almoço</span><span>mercado 150 ontem</span><span>600 atacadão mês que vem</span><span>tênis 300 em 3x</span>
+            </div>
+            <dl class="cmds">
+              <dt>resumo</dt><dd>gastos do mês por categoria</dd>
+              <dt>desfazer</dt><dd>apaga o último lançamento</dd>
+              <dt>ajuda</dt><dd>mostra os exemplos</dd>
+            </dl>
+          </div>
+        </details>
+
+        <!-- Siri -->
+        <details class="card fold">
+          <summary><h2><span data-icon="mic"></span>Siri (iPhone)</h2><span class="fold-meta status-text" id="siri-status"></span></summary>
+          <div class="fold-body">
+            <p class="desc">Diga <b>“E aí Siri, gastei”</b> e, em seguida, o valor — tipo “200 de gasolina”. O gasto entra com o seu nome.</p>
+            <div id="siri-body"></div>
+          </div>
+        </details>
+
+        <!-- Serviços -->
+        <details class="card fold">
+          <summary><h2><span data-icon="tag"></span>Serviços e cachês</h2></summary>
+          <div class="fold-body">
             <p class="desc">O cachê é aplicado automaticamente quando o título do evento contém o nome do serviço.</p>
             <div class="inline-field">
               <div>
@@ -718,172 +880,113 @@
               <label class="money-input"><span>R$</span><input class="input" id="set-food" inputmode="decimal" aria-label="Alimentação por dia em reais"></label>
             </div>
             <div class="list" id="set-services"></div>
+            <div class="btn-row"><button class="btn btn-sm" type="button" data-act="add-service"><span data-icon="plus"></span>Novo serviço</button></div>
           </div>
+        </details>
 
-          <!-- Agenda -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="link"></span>Agenda conectada</h2>
-              <span class="status-text" id="set-sync-status"></span>
-            </div>
-            <p class="desc">Importa os eventos do iCloud ou Google Agenda. Nada é apagado nem duplicado nas sincronizações.</p>
-            <label class="field">
-              <span class="field-label">Link público da agenda</span>
-              <span class="input-group">
-                <input class="input" id="set-ics-url" placeholder="webcal://… ou https://…" autocomplete="off" spellcheck="false">
-                <button class="btn btn-primary" type="button" data-act="sync-now" id="btn-sync"><span data-icon="refresh"></span><span id="btn-sync-label">Sincronizar</span></button>
-              </span>
-            </label>
-            <div class="notice warn" id="ics-trunc" hidden>Este link parece incompleto. No iCloud, use o botão Copiar da janela de compartilhamento e cole o link inteiro.</div>
-            <div class="notice danger" id="ics-error" hidden>
-              <div id="ics-error-msg"></div>
-              <div class="mono" id="ics-error-diag"></div>
-            </div>
-            <div style="margin-top:12px;">
-              <label class="toggle"><input type="checkbox" id="set-auto-sync"><span class="toggle-ui"></span><span>Sincronizar automaticamente (ao abrir e a cada 5 min)</span></label>
-              <label class="toggle"><input type="checkbox" id="set-only-matched"><span class="toggle-ui"></span><span>Importar só eventos que casarem com um serviço</span></label>
-            </div>
-            <div class="row-between" id="ignored-wrap" style="margin-top:8px;" hidden>
-              <span class="muted" style="font-size:12.5px;" id="ignored-text"></span>
-              <button class="btn btn-ghost btn-sm" type="button" data-act="clear-ignored">Reimportar</button>
-            </div>
-            <details class="disclosure">
-              <summary>Como pegar o link no iCloud</summary>
-              <div class="disclosure-body">
-                <ol>
-                  <li>Acesse <a href="https://www.icloud.com/calendar" target="_blank" rel="noopener">icloud.com/calendar</a>.</li>
-                  <li>Clique no ícone de compartilhar ao lado do calendário.</li>
-                  <li>Marque <b>Calendário público</b> e clique em <b>Salvar</b>.</li>
-                  <li>Copie o link (começa com webcal://) e cole acima.</li>
-                </ol>
+        <!-- Agenda conectada -->
+        <details class="card fold">
+          <summary><h2><span data-icon="link"></span>Agenda conectada</h2><span class="fold-meta status-text" id="set-sync-status"></span></summary>
+          <div class="fold-body">
+              <p class="desc">Importa os eventos do iCloud ou Google Agenda. Nada é apagado nem duplicado nas sincronizações.</p>
+              <label class="field">
+                <span class="field-label">Link público da agenda</span>
+                <span class="input-group">
+                  <input class="input" id="set-ics-url" placeholder="webcal://… ou https://…" autocomplete="off" spellcheck="false">
+                  <button class="btn btn-primary" type="button" data-act="sync-now" id="btn-sync"><span data-icon="refresh"></span><span id="btn-sync-label">Sincronizar</span></button>
+                </span>
+              </label>
+              <div class="notice warn" id="ics-trunc" hidden>Este link parece incompleto. No iCloud, use o botão Copiar da janela de compartilhamento e cole o link inteiro.</div>
+              <div class="notice danger" id="ics-error" hidden>
+                <div id="ics-error-msg"></div>
+                <div class="mono" id="ics-error-diag"></div>
               </div>
-            </details>
-            <details class="disclosure">
-              <summary>Importar colando o conteúdo da agenda</summary>
-              <div class="disclosure-body">
-                <p style="margin:0 0 8px;">Abra o link no navegador (troque webcal:// por https://), copie todo o texto e cole aqui. Funciona mesmo quando a sincronização falha.</p>
-                <textarea class="input" id="paste-ics" placeholder="BEGIN:VCALENDAR…"></textarea>
-                <div class="btn-row"><button class="btn btn-sm" type="button" data-act="parse-pasted">Importar texto</button></div>
+              <div style="margin-top:12px;">
+                <label class="toggle"><input type="checkbox" id="set-auto-sync"><span class="toggle-ui"></span><span>Sincronizar automaticamente (ao abrir e a cada 5 min)</span></label>
+                <label class="toggle"><input type="checkbox" id="set-only-matched"><span class="toggle-ui"></span><span>Importar só eventos que casarem com um serviço</span></label>
               </div>
-            </details>
-          </div>
-        </div>
-
-        <div class="settings-col">
-          <!-- Conta -->
-          <div class="card">
-            <div class="card-head" style="margin-bottom:12px;">
-              <h2><span data-icon="user"></span>Conta</h2>
-            </div>
-            <div class="acct" id="acct"></div>
-          </div>
-
-          <!-- Nuvem -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="cloud"></span>Nuvem</h2>
-              <span class="status-text" id="cl-status"></span>
-            </div>
-            <p class="desc">Seus dados ficam salvos no Firebase e aparecem iguais em todos os aparelhos da família.</p>
-            <dl class="kv">
-              <dt>Projeto</dt><dd id="cl-project" class="mono"></dd>
-              <dt>Última gravação</dt><dd id="cl-last"></dd>
-            </dl>
-            <button class="btn btn-sm" type="button" data-act="cloud-force"><span data-icon="refresh"></span>Sincronizar agora</button>
-            <details class="disclosure">
-              <summary>Usar outro projeto Firebase</summary>
-              <div class="disclosure-body">
-                <p style="margin:0 0 8px;">Cole o bloco <code>firebaseConfig</code> do seu projeto (Configurações do projeto → Seus apps → Web).</p>
-                <textarea class="input" id="cl-config" placeholder='const firebaseConfig = { apiKey: "…", projectId: "…", databaseURL: "…" };'></textarea>
-                <div class="btn-row">
-                  <button class="btn btn-sm btn-primary" type="button" data-act="cloud-connect">Conectar a este projeto</button>
-                  <button class="btn btn-sm btn-ghost" type="button" data-act="cloud-default">Voltar ao projeto padrão</button>
+              <div class="row-between" id="ignored-wrap" style="margin-top:8px;" hidden>
+                <span class="muted" style="font-size:12.5px;" id="ignored-text"></span>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="clear-ignored">Reimportar</button>
+              </div>
+              <details class="disclosure">
+                <summary>Como pegar o link no iCloud</summary>
+                <div class="disclosure-body">
+                  <ol>
+                    <li>Acesse <a href="https://www.icloud.com/calendar" target="_blank" rel="noopener">icloud.com/calendar</a>.</li>
+                    <li>Clique no ícone de compartilhar ao lado do calendário.</li>
+                    <li>Marque <b>Calendário público</b> e clique em <b>Salvar</b>.</li>
+                    <li>Copie o link (começa com webcal://) e cole acima.</li>
+                  </ol>
                 </div>
-              </div>
-            </details>
-          </div>
-
-          <!-- WhatsApp -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="chat"></span>WhatsApp</h2>
-              <span class="status-text" id="wa-status"></span>
-            </div>
-            <p class="desc">Mande seus gastos para o número do bot e eles entram em Financeiro → Saídas, com categoria automática.</p>
-            <div class="examples">
-              <span>200 gasolina</span><span>gastei 35,90 no almoço</span><span>mercado 150 ontem</span><span>80 uber dia 12</span>
-            </div>
-            <dl class="cmds">
-              <dt>resumo</dt><dd>gastos do mês por categoria</dd>
-              <dt>desfazer</dt><dd>apaga o último lançamento</dd>
-              <dt>ajuda</dt><dd>mostra os exemplos</dd>
-            </dl>
-          </div>
-
-          <!-- Siri -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="mic"></span>Siri (iPhone)</h2>
-              <span class="status-text" id="siri-status"></span>
-            </div>
-            <p class="desc">Diga <b>“E aí Siri, gastei”</b> e, em seguida, o valor — tipo “200 de gasolina”. A saída entra aqui com o seu nome.</p>
-            <div id="siri-body"></div>
-          </div>
-
-          <!-- Notificações -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="bell"></span>Notificações</h2>
-              <span class="status-text" id="push-status"></span>
-            </div>
-            <p class="desc">Receba um aviso no celular quando um gasto for anotado pelo WhatsApp ou pela Siri — e as respostas do bot que não chegarem no WhatsApp.</p>
-            <div id="push-body"></div>
-          </div>
-
-          <!-- Backup -->
-          <div class="card">
-            <div class="card-head">
-              <h2><span data-icon="database"></span>Backup</h2>
-            </div>
-            <p class="desc">Guarde uma cópia de tempos em tempos, principalmente antes de trocar de celular.</p>
-            <div class="btn-row" style="margin-top:0;">
-              <button class="btn btn-sm" type="button" data-act="backup-download"><span data-icon="download"></span>Baixar backup</button>
-              <button class="btn btn-sm" type="button" data-act="backup-restore"><span data-icon="upload"></span>Restaurar arquivo</button>
-              <input type="file" id="backup-file" accept=".json,application/json" hidden>
-            </div>
-            <details class="disclosure">
-              <summary>Copiar / colar como texto</summary>
-              <div class="disclosure-body">
-                <textarea class="input" id="backup-text" placeholder="Gere o texto do backup ou cole aqui um backup anterior…"></textarea>
-                <div class="btn-row">
-                  <button class="btn btn-sm" type="button" data-act="backup-gen">Gerar texto</button>
-                  <button class="btn btn-sm" type="button" data-act="backup-copy">Copiar</button>
-                  <button class="btn btn-sm btn-primary" type="button" data-act="backup-apply">Restaurar deste texto</button>
+              </details>
+              <details class="disclosure">
+                <summary>Importar colando o conteúdo da agenda</summary>
+                <div class="disclosure-body">
+                  <p style="margin:0 0 8px;">Abra o link no navegador (troque webcal:// por https://), copie todo o texto e cole aqui. Funciona mesmo quando a sincronização falha.</p>
+                  <textarea class="input" id="paste-ics" placeholder="BEGIN:VCALENDAR…"></textarea>
+                  <div class="btn-row"><button class="btn btn-sm" type="button" data-act="parse-pasted">Importar texto</button></div>
                 </div>
-              </div>
-            </details>
+              </details>
           </div>
+        </details>
 
-          <!-- Aparência -->
-          <div class="card">
-            <div class="card-head" style="margin-bottom:0;">
-              <h2><span data-icon="sun"></span>Aparência</h2>
-              <div class="seg" id="theme-seg" role="group" aria-label="Tema">
-                <button type="button" data-act="theme" data-v="dark">Escuro</button>
-                <button type="button" data-act="theme" data-v="light">Claro</button>
-                <button type="button" data-act="theme" data-v="system">Sistema</button>
-              </div>
-            </div>
+        <!-- Nuvem -->
+        <details class="card fold">
+          <summary><h2><span data-icon="cloud"></span>Nuvem</h2><span class="fold-meta status-text" id="cl-status"></span></summary>
+          <div class="fold-body">
+              <p class="desc">Seus dados ficam salvos no Firebase e aparecem iguais em todos os aparelhos da família.</p>
+              <dl class="kv">
+                <dt>Projeto</dt><dd id="cl-project" class="mono"></dd>
+                <dt>Última gravação</dt><dd id="cl-last"></dd>
+              </dl>
+              <button class="btn btn-sm" type="button" data-act="cloud-force"><span data-icon="refresh"></span>Sincronizar agora</button>
+              <details class="disclosure">
+                <summary>Usar outro projeto Firebase</summary>
+                <div class="disclosure-body">
+                  <p style="margin:0 0 8px;">Cole o bloco <code>firebaseConfig</code> do seu projeto (Configurações do projeto → Seus apps → Web).</p>
+                  <textarea class="input" id="cl-config" placeholder='const firebaseConfig = { apiKey: "…", projectId: "…", databaseURL: "…" };'></textarea>
+                  <div class="btn-row">
+                    <button class="btn btn-sm btn-primary" type="button" data-act="cloud-connect">Conectar a este projeto</button>
+                    <button class="btn btn-sm btn-ghost" type="button" data-act="cloud-default">Voltar ao projeto padrão</button>
+                  </div>
+                </div>
+              </details>
           </div>
-        </div>
+        </details>
+
+        <!-- Backup -->
+        <details class="card fold">
+          <summary><h2><span data-icon="database"></span>Backup</h2></summary>
+          <div class="fold-body">
+              <p class="desc">Guarde uma cópia de tempos em tempos, principalmente antes de trocar de celular.</p>
+              <div class="btn-row" style="margin-top:0;">
+                <button class="btn btn-sm" type="button" data-act="backup-download"><span data-icon="download"></span>Baixar backup</button>
+                <button class="btn btn-sm" type="button" data-act="backup-restore"><span data-icon="upload"></span>Restaurar arquivo</button>
+                <input type="file" id="backup-file" accept=".json,application/json" hidden>
+              </div>
+              <details class="disclosure">
+                <summary>Copiar / colar como texto</summary>
+                <div class="disclosure-body">
+                  <textarea class="input" id="backup-text" placeholder="Gere o texto do backup ou cole aqui um backup anterior…"></textarea>
+                  <div class="btn-row">
+                    <button class="btn btn-sm" type="button" data-act="backup-gen">Gerar texto</button>
+                    <button class="btn btn-sm" type="button" data-act="backup-copy">Copiar</button>
+                    <button class="btn btn-sm btn-primary" type="button" data-act="backup-apply">Restaurar deste texto</button>
+                  </div>
+                </div>
+              </details>
+          </div>
+        </details>
       </div>
     </section>
   </main>
 
   <nav class="bottomnav" aria-label="Seções">
-    <button class="nav-btn" type="button" data-act="tab" data-tab="agenda"><span data-icon="calendar" data-size="20"></span>Agenda</button>
-    <button class="nav-btn" type="button" data-act="tab" data-tab="fin"><span data-icon="wallet" data-size="20"></span>Financeiro</button>
-    <button class="nav-btn" type="button" data-act="tab" data-tab="ajustes"><span data-icon="settings" data-size="20"></span>Ajustes</button>
+    <button class="nav-btn" type="button" data-act="tab" data-tab="inicio"><span data-icon="home" data-size="22"></span>Início</button>
+    <button class="nav-btn" type="button" data-act="tab" data-tab="gastos"><span data-icon="wallet" data-size="22"></span>Gastos</button>
+    <button class="nav-btn" type="button" data-act="tab" data-tab="agenda"><span data-icon="calendar" data-size="22"></span>Agenda</button>
+    <button class="nav-btn" type="button" data-act="tab" data-tab="ajustes"><span data-icon="settings" data-size="22"></span>Ajustes</button>
   </nav>
 
   <div class="overlay" id="modal-root" hidden>
@@ -1029,6 +1132,7 @@
 
     const ICONS = {
       calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/>',
       wallet: '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3"/><path d="M3 5v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 12h-4a2 2 0 0 0 0 4h4z"/>',
       settings: '<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
       plus: '<path d="M12 5v14M5 12h14"/>',
@@ -1087,6 +1191,7 @@
       tab: 'agenda',
       theme: 'dark',
       filterFin: 'all',
+      outWho: 'all',
       syncing: false,
       cloudStatus: 'syncing'
     };
@@ -1213,9 +1318,9 @@
       state.ignoredUids = readJSON(STORAGE.IGNORED_UIDS, []);
       state.firebaseConfig = readJSON(STORAGE.FB_CONFIG, null) || DEFAULT_FIREBASE_CONFIG;
       state.sectionTimestamps = readJSON(STORAGE.SECTION_TIMESTAMPS, {}) || {};
-      state.theme = getRaw(STORAGE.THEME) || 'dark';
+      state.theme = getRaw(STORAGE.THEME) || 'light';
       const tab = getRaw(STORAGE.TAB);
-      state.tab = ['agenda', 'fin', 'ajustes'].indexOf(tab) !== -1 ? tab : 'agenda';
+      state.tab = tab === 'fin' ? 'inicio' : (['inicio', 'gastos', 'agenda', 'ajustes'].indexOf(tab) !== -1 ? tab : 'inicio');
 
       state.outflows = readJSON(STORAGE.OUTFLOWS, {});
       state.outPending = readJSON(STORAGE.OUT_PENDING, {});
@@ -1365,7 +1470,7 @@
       saveOutflowsLocal();
       renderAll();
       flushOutflows();
-      toast('Saída excluída', { action: { label: 'Desfazer', fn: () => saveOutflow(o) } });
+      toast('Gasto excluído', { action: { label: 'Desfazer', fn: () => saveOutflow(o) } });
     }
     // Envia para a nuvem as saídas criadas/alteradas/excluídas neste aparelho
     function flushOutflows() {
@@ -1397,7 +1502,7 @@
       renderAll();
       fresh.forEach(k => {
         const o = merged[k];
-        toast('Nova saída ' + (o.source === 'siri' ? 'pela Siri' : 'pelo WhatsApp') + (o.who ? ' (' + o.who + ')' : '') + ': ' + fmtBRL(o.value) + ' · ' + catInfo(o.category).name);
+        toast('Novo gasto ' + (o.source === 'siri' ? 'pela Siri' : 'pelo WhatsApp') + (o.who ? ' (' + o.who + ')' : '') + ': ' + fmtBRL(o.value) + ' · ' + catInfo(o.category).name);
       });
     }
 
@@ -1529,13 +1634,15 @@
        NAVEGAÇÃO / CABEÇALHO
        ===================================================================== */
     const TAB_INFO = {
+      inicio: ['Início', 'Resumo do mês', 'Lançar'],
+      gastos: ['Gastos', 'Tudo o que saiu no mês', 'Gasto'],
       agenda: ['Agenda', 'Seus dias de trabalho e cachês', 'Trabalho'],
-      fin: ['Financeiro', 'Receitas, contas e saldo do mês', 'Lançamento'],
-      ajustes: ['Ajustes', 'Serviços, agenda conectada, nuvem e backup', '']
+      ajustes: ['Ajustes', 'Conta, conexões e preferências', '']
     };
 
     function setTab(t) {
-      if (!TAB_INFO[t]) t = 'agenda';
+      if (t === 'fin') t = 'inicio';
+      if (!TAB_INFO[t]) t = 'inicio';
       const changed = state.tab !== t;
       state.tab = t;
       setRaw(STORAGE.TAB, t);
@@ -1545,16 +1652,15 @@
 
     function renderHeader() {
       const info = TAB_INFO[state.tab];
-      $('#page-title').textContent = info[0];
+      const nm = state.tab === 'inicio' ? firstName() : '';
+      $('#page-title').textContent = nm ? 'Olá, ' + nm : info[0];
       $('#page-sub').textContent = info[1];
       $$('.nav-btn').forEach(b => {
         const on = b.dataset.tab === state.tab;
         b.classList.toggle('active', on);
         if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
       });
-      $('#view-agenda').hidden = state.tab !== 'agenda';
-      $('#view-fin').hidden = state.tab !== 'fin';
-      $('#view-ajustes').hidden = state.tab !== 'ajustes';
+      ['inicio', 'gastos', 'agenda', 'ajustes'].forEach(v => { $('#view-' + v).hidden = state.tab !== v; });
       const isSettings = state.tab === 'ajustes';
       $('#month-switch').hidden = isSettings;
       $('#page-action').hidden = isSettings;
@@ -1607,10 +1713,9 @@
       const unset = works.filter(w => dayCache(w) === null).length;
 
       $('#ag-kpis').innerHTML =
-        kpi('Previsto no mês', fmtBRL(total), plural(works.length, 'trabalho', 'trabalhos'), 'blue') +
-        kpi('Recebido', fmtBRL(paid), total ? Math.round(paid / total * 100) + '% do previsto' : '—', 'green') +
-        kpi('A receber', fmtBRL(total - paid), unset ? plural(unset, 'sem cachê definido', 'sem cachê definido') : 'Tudo com cachê definido', 'amber') +
-        kpi('Dias trabalhados', String(dates.size), hours ? fmtHours(hours) + ' no mês' : '—', '');
+        '<div><span>Previsto</span><b class="num">' + fmtBRL(total) + '</b><small>' + plural(works.length, 'trabalho', 'trabalhos') + '</small></div>' +
+        '<div><span>Recebido</span><b class="num pos">' + fmtBRL(paid) + '</b><small>' + (total ? Math.round(paid / total * 100) + '% do previsto' : '—') + '</small></div>' +
+        '<div><span>A receber</span><b class="num">' + fmtBRL(total - paid) + '</b><small' + (unset ? ' class="warnc"' : '') + '>' + (unset ? plural(unset, 'sem cachê', 'sem cachê') : plural(dates.size, 'dia', 'dias')) + '</small></div>';
 
       renderSyncLine();
 
@@ -1869,95 +1974,126 @@
     function renderFin() {
       const mKey = monthKey(state.month);
       const S = monthSummary(state.month);
-      const pct = S.receitas > 0 ? Math.round(S.recebido / S.receitas * 100) : 0;
-
-      $('#fin-hero').innerHTML =
-        '<div class="hero-label">Saldo previsto · ' + monthLabel(state.month) + '</div>' +
-        '<div class="hero-value num' + (S.saldo < 0 ? ' neg' : '') + '">' + fmtBRL(S.saldo) + '</div>' +
-        '<div class="hero-break">' +
-          '<span><span class="pos">' + icon('arrowUp', 14) + '</span>Receitas <b class="num">' + fmtBRL(S.receitas) + '</b></span>' +
-          '<span><span class="neg">' + icon('arrowDown', 14) + '</span>Contas <b class="num">' + fmtBRL(S.contasTotal) + '</b></span>' +
-          '<span><span class="neg">' + icon('arrowDown', 14) + '</span>Saídas <b class="num">' + fmtBRL(S.saidasTotal) + '</b></span>' +
-        '</div>' +
-        '<div class="hero-progress"><div class="progress" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><div style="width:' + pct + '%"></div></div>' +
-        '<div class="hero-foot"><span>' + fmtBRL(S.recebido) + ' recebido</span><span>' + pct + '% das receitas</span></div></div>';
-
-      $('#fin-kpis').innerHTML =
-        kpi('Recebido', fmtBRL(S.recebido), 'Trabalhos e entradas', 'green') +
-        kpi('A receber', fmtBRL(S.aReceber), plural(S.trabCount, 'trabalho', 'trabalhos') + ' · ' + plural(S.entCount, 'entrada', 'entradas'), 'amber') +
-        kpi('Saídas', fmtBRL(S.saidasTotal), plural(S.saidasCount, 'lançamento', 'lançamentos') + ' · contas pagas ' + S.contasPagasCount + '/' + S.contasCount, 'red') +
-        kpi('Em caixa', fmtBRL(S.disponivel), 'Recebido − contas pagas − saídas', S.disponivel < 0 ? 'red' : '');
-
-      renderChart();
-
-      // Saídas
       const outs = outflowsForMonth(state.month);
-      $('#out-count').textContent = outs.length ? plural(outs.length, 'saída', 'saídas') + ' · ' + fmtBRL(S.saidasTotal) : '';
-      $('#fin-outflows').innerHTML = outs.length
-        ? outs.map(outflowRow).join('')
-        : emptyState('cart', 'Nenhuma saída em ' + MONTHS[state.month.getMonth()].toLowerCase(), 'Mande "200 gasolina" no WhatsApp ou adicione aqui.');
-      $('#fin-out-cats').innerHTML = renderOutCats(outs, S.saidasTotal);
-
-      // Trabalhos
+      const exps = expensesForMonth(state.month);
+      const incs = incomesForMonth(state.month);
       const works = worksInMonth(mKey);
+
+      // ---------- Início: sobra prevista + entrou/saiu ----------
+      $('#fin-hero').innerHTML =
+        '<div class="hero-label">Sobra prevista em ' + MONTHS[state.month.getMonth()].toLowerCase() + '</div>' +
+        '<div class="hero-value num' + (S.saldo < 0 ? ' neg' : '') + '">' + fmtBRL(S.saldo) + '</div>' +
+        '<div class="io">' +
+          '<div class="in"><span>Entradas</span><b class="num">' + fmtBRL(S.receitas) + '</b></div>' +
+          '<div class="out"><span>Saídas</span><b class="num">' + fmtBRL(S.despesas) + '</b></div>' +
+        '</div>';
+
+      // ---------- Início: a receber + contas fixas ----------
+      const pendWorks = works.filter(w => !w.paid).length;
+      const pendIncs = incs.filter(x => !isIncomeReceived(x, mKey)).length;
+      const unpaidExps = exps.filter(e => !isExpensePaid(e, mKey));
+      const recSub = S.aReceber > 0 ? [pendWorks ? plural(pendWorks, 'trabalho', 'trabalhos') : '', pendIncs ? plural(pendIncs, 'entrada', 'entradas') : ''].filter(Boolean).join(' · ') : 'Tudo recebido';
+      const faltam = unpaidExps.reduce((a, e) => a + (Number(e.value) || 0), 0);
+      const contasSub = !exps.length ? 'Nenhuma cadastrada' : unpaidExps.length === 1 ? 'Falta ' + unpaidExps[0].name + ' · ' + fmtBRL(faltam) : unpaidExps.length ? 'Faltam ' + fmtBRL(faltam) : 'Tudo pago';
+      $('#home-tiles').innerHTML =
+        '<button type="button" class="tile" data-act="open-fold" data-fold="' + (pendWorks || !pendIncs ? 'fold-trab' : 'fold-entradas') + '">' +
+          '<span class="tile-label">A receber</span><span class="tile-value num">' + fmtBRL(S.aReceber) + '</span>' +
+          '<span class="tile-sub' + (S.aReceber > 0 ? '' : ' ok') + '">' + esc(recSub) + '</span></button>' +
+        '<button type="button" class="tile" data-act="open-fold" data-fold="fold-contas">' +
+          '<span class="tile-label">Contas fixas</span><span class="tile-value">' + (exps.length ? (exps.length - unpaidExps.length) + ' de ' + exps.length + ' pagas' : '—') + '</span>' +
+          '<span class="tile-sub ' + (unpaidExps.length ? 'warn' : 'ok') + '">' + esc(contasSub) + '</span></button>';
+
+      // ---------- Início: para onde foi (3 maiores categorias) ----------
+      const byCat = {};
+      outs.forEach(o => { const c = catInfo(o.category).id; byCat[c] = (byCat[c] || 0) + (Number(o.value) || 0); });
+      const catIds = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
+      const barsHtml = ids => '<div class="bars">' + ids.map(id => {
+        const c = catInfo(id);
+        const pct = S.saidasTotal > 0 ? Math.round(byCat[id] / S.saidasTotal * 100) : 0;
+        return '<div><div class="bar-top"><span>' + esc(c.name) + ' <em>' + pct + '%</em></span><b class="num">' + fmtBRL(byCat[id]) + '</b></div>' +
+          '<div class="bar-track"><div style="width:' + Math.max(pct, 2) + '%"></div></div></div>';
+      }).join('') + '</div>';
+      $('#home-cats').innerHTML = catIds.length
+        ? barsHtml(catIds.slice(0, 3)) + (catIds.length > 3 ? '<div class="hint" style="margin-top:10px;">+ ' + plural(catIds.length - 3, 'outra categoria', 'outras categorias') + '</div>' : '')
+        : '<div class="muted" style="font-size:13px;">Quando você lançar gastos, as maiores categorias aparecem aqui.</div>';
+
+      // ---------- Início: últimos gastos ----------
+      const recent = outs.slice().sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0) || b.date.localeCompare(a.date)).slice(0, 3);
+      $('#home-recent').innerHTML = recent.length
+        ? recent.map(o => outflowRow(o, true)).join('')
+        : emptyState('cart', 'Nenhum gasto ainda', 'Mande "200 gasolina" no WhatsApp ou toque em +.');
+
+      // ---------- Detalhes do mês (seções que abrem e fecham) ----------
+      $('#fold-contas-meta').textContent = exps.length ? (exps.length - unpaidExps.length) + '/' + exps.length + ' pagas' : '';
+      $('#fin-expenses').innerHTML = exps.length
+        ? exps.map(e => expenseRow(e, mKey)).join('')
+        : emptyState('receipt', 'Nenhuma conta fixa', 'Cadastre aluguel, internet, assinaturas…');
+      $('#fold-entradas-meta').textContent = incs.length ? fmtBRL(S.entTotal) : '';
+      $('#fin-incomes').innerHTML = incs.length
+        ? incs.map(x => incomeRow(x, mKey)).join('')
+        : emptyState('inbox', 'Nenhuma entrada', 'Registre salários, rendas extras ou reembolsos.');
+      $('#fold-trab-meta').textContent = works.length ? fmtBRL(S.trabTotal) : '';
       $$('#fin-filter button').forEach(b => b.classList.toggle('active', b.dataset.v === state.filterFin));
       const filtered = works.filter(w => state.filterFin === 'paid' ? w.paid : state.filterFin === 'unpaid' ? !w.paid : true);
       $('#btn-mark-all').hidden = !works.some(w => !w.paid);
       $('#fin-works').innerHTML = filtered.length
         ? filtered.map(workRow).join('') + '<div class="list-total"><span>' + plural(filtered.length, 'trabalho', 'trabalhos') + '</span><b class="num">' + fmtBRL(filtered.reduce((a, w) => a + dayTotal(w), 0)) + '</b></div>'
         : emptyState('briefcase', works.length ? 'Nada neste filtro' : 'Sem trabalhos neste mês', works.length ? 'Troque o filtro para ver os demais.' : 'Os trabalhos da Agenda aparecem aqui.');
-
-      // Entradas
-      const incs = incomesForMonth(state.month);
-      $('#fin-incomes').innerHTML = incs.length
-        ? incs.map(i => incomeRow(i, mKey)).join('')
-        : emptyState('inbox', 'Nenhuma entrada', 'Registre salários, rendas extras ou reembolsos.');
-
-      // Contas
-      const exps = expensesForMonth(state.month);
-      $('#fin-expenses').innerHTML = exps.length
-        ? exps.map(e => expenseRow(e, mKey)).join('')
-        : emptyState('receipt', 'Nenhuma conta fixa', 'Cadastre aluguel, internet, assinaturas…');
-
-      // Acumulado
+      renderChart();
       let ht = 0, hp = 0;
       state.days.forEach(d => { const t = dayTotal(d); ht += t; if (d.paid) hp += t; });
       $('#fin-history').innerHTML = '<div class="hist"><span class="hist-title">Acumulado de trabalhos</span><div class="hist-items">' +
         '<span>Total <b class="num">' + fmtBRL(ht) + '</b></span>' +
         '<span>Recebido <b class="num pos">' + fmtBRL(hp) + '</b></span>' +
-        '<span>Pendente <b class="num warnc">' + fmtBRL(ht - hp) + '</b></span>' +
-        '<span>' + plural(state.days.length, 'trabalho', 'trabalhos') + '</span></div></div>';
+        '<span>Pendente <b class="num warnc">' + fmtBRL(ht - hp) + '</b></span></div></div>';
+
+      // ---------- Gastos ----------
+      const people = [...new Set(outs.map(o => o.who).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      if (state.outWho !== 'all' && people.indexOf(state.outWho) === -1) state.outWho = 'all';
+      const shown = state.outWho === 'all' ? outs : outs.filter(o => o.who === state.outWho);
+      const shownTotal = shown.reduce((a, o) => a + (Number(o.value) || 0), 0);
+      $('#out-summary').innerHTML = '<b class="num">' + fmtBRL(shownTotal) + '</b><span>' + (shown.length ? 'em ' + plural(shown.length, 'gasto', 'gastos') : '') + (state.outWho !== 'all' ? ' de ' + esc(state.outWho) : '') + '</span>';
+      $('#out-filter').innerHTML = people.length > 1
+        ? ['all'].concat(people).map(p => '<button type="button" data-act="out-who" data-v="' + esc(p) + '" class="' + (state.outWho === p ? 'active' : '') + '">' + (p === 'all' ? 'Todos' : esc(p)) + '</button>').join('')
+        : '';
+      $('#out-filter').hidden = people.length <= 1;
+      let lastDay = '', html = '';
+      shown.forEach(o => {
+        if (o.date !== lastDay) { html += '<div class="day-head">' + esc(dayLabel(o.date)) + '</div>'; lastDay = o.date; }
+        html += outflowRow(o, false);
+      });
+      $('#fin-outflows').innerHTML = shown.length
+        ? html
+        : emptyState('cart', 'Nenhum gasto em ' + MONTHS[state.month.getMonth()].toLowerCase(), 'Mande "200 gasolina" no WhatsApp ou toque em +.');
+      $('#fin-out-cats').innerHTML = catIds.length ? barsHtml(catIds) : '<div class="muted" style="font-size:13px;">As categorias aparecem aqui conforme você lança gastos.</div>';
     }
 
-    function outflowRow(o) {
-      const dt = parseISO(o.date);
+    // "Hoje", "Ontem" ou "15 de novembro"
+    function dayLabel(iso) {
+      const t = todayISO();
+      if (iso === t) return 'Hoje';
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      if (iso === isoDate(y)) return 'Ontem';
+      const d = parseISO(iso);
+      return d.getDate() + ' de ' + MONTHS[d.getMonth()].toLowerCase() + (iso > t ? ' (agendado)' : '');
+    }
+
+    function outflowRow(o, withDate) {
       const cat = catInfo(o.category);
+      const sub = [esc(cat.name)];
+      if (o.who) sub.push(esc(o.who));
+      if (withDate) sub.push(esc(dayLabel(o.date).toLowerCase()));
       return '<div class="row" role="button" tabindex="0" data-act="edit-outflow" data-id="' + esc(o.id) + '">' +
-        '<div class="date-badge"><b>' + dt.getDate() + '</b><span>' + WD[dt.getDay()] + '</span></div>' +
+        '<span class="cat-ic" style="--c:' + cat.color + '" aria-hidden="true">' + (cat.emoji || '•') + '</span>' +
         '<div class="row-main"><div class="row-title">' + esc(o.description || cat.name) + '</div>' +
-          '<div class="row-sub"><span class="cat-dot" style="background:' + cat.color + '"></span>' + esc(cat.name) +
-          srcBadge(o) +
-          (o.who ? ' · <span class="who">' + esc(o.who) + '</span>' : '') + '</div></div>' +
-        '<div class="row-end"><div class="row-amt num neg">− ' + fmtBRL(o.value) + '</div></div></div>';
+          '<div class="row-sub">' + sub.join(' · ') + '</div></div>' +
+        '<div class="row-amt num">' + fmtBRL(o.value) + '</div></div>';
     }
 
     function srcBadge(o) {
       if (o.source === 'whatsapp') return ' · <span class="wa" title="Recebida pelo WhatsApp">' + icon('chat', 12) + 'WhatsApp</span>';
       if (o.source === 'siri') return ' · <span class="siri" title="Lançada pela Siri">' + icon('mic', 12) + 'Siri</span>';
       return '';
-    }
-
-    function renderOutCats(outs, total) {
-      if (!outs.length) return '<div class="out-side-title">Por categoria</div><div class="muted" style="font-size:13px;">As categorias aparecem aqui conforme você lança saídas.</div>';
-      const by = {};
-      outs.forEach(o => { const c = catInfo(o.category).id; by[c] = (by[c] || 0) + (Number(o.value) || 0); });
-      const rows = Object.keys(by).sort((a, b) => by[b] - by[a]).map(id => {
-        const c = catInfo(id);
-        const pct = total > 0 ? Math.round(by[id] / total * 100) : 0;
-        return '<div><div class="cat-bar-top"><span><span class="cat-dot" style="background:' + c.color + '"></span>' + esc(c.name) + '<em>' + pct + '%</em></span><b class="num">' + fmtBRL(by[id]) + '</b></div>' +
-          '<div class="cat-bar-track"><div style="width:' + Math.max(pct, 2) + '%;background:' + c.color + '"></div></div></div>';
-      }).join('');
-      return '<div class="out-side-title">Por categoria</div><div class="cat-bars">' + rows + '</div>';
     }
 
     function incomeRow(inc, mKey) {
@@ -2086,12 +2222,12 @@
         obj.updatedAt = Date.now();
         Modal.close();
         saveOutflow(obj);
-        toast(o ? 'Saída atualizada' : 'Saída adicionada');
+        toast(o ? 'Gasto atualizado' : 'Gasto adicionado');
       };
 
       Modal.open({
         type: 'outflow',
-        title: o ? 'Editar saída' : 'Nova saída',
+        title: o ? 'Editar gasto' : 'Novo gasto',
         subtitle: o ? ((o.source === 'whatsapp' ? 'Recebida pelo WhatsApp' : o.source === 'siri' ? 'Lançada pela Siri' : 'Lançada no site') + (o.who ? ' · ' + o.who : '')) : 'Gasto do dia a dia',
         body: body, footer: footer, focus: o ? null : '#o-desc',
         onMount: () => {
@@ -2103,7 +2239,7 @@
           $('#o-save').onclick = save;
           if (o) {
             $('#o-del').onclick = async () => {
-              const ok = await confirmDanger('Excluir saída?', '<b>' + esc(o.description || 'Saída') + '</b> de ' + fmtBRL(o.value) + ' será removida.');
+              const ok = await confirmDanger('Excluir gasto?', '<b>' + esc(o.description || 'Gasto') + '</b> de ' + fmtBRL(o.value) + ' será removido.');
               if (!ok) return;
               Modal.close();
               deleteOutflow(o.id);
@@ -2392,13 +2528,13 @@
     }
 
     function applyTheme(t) {
-      state.theme = ['dark', 'light', 'system'].indexOf(t) !== -1 ? t : 'dark';
+      state.theme = ['dark', 'light', 'system'].indexOf(t) !== -1 ? t : 'light';
       setRaw(STORAGE.THEME, state.theme);
       let eff = state.theme;
       if (eff === 'system') eff = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', eff);
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', eff === 'light' ? '#f4f6f9' : '#0a0c11');
+      if (meta) meta.setAttribute('content', eff === 'light' ? '#f3f4f1' : '#0f1211');
     }
 
     /* =====================================================================
@@ -2662,7 +2798,7 @@
       const n = k => Array.isArray(p[k]) ? p[k].length : 0;
       const ok = await ask({
         title: 'Restaurar backup?',
-        message: 'Os dados atuais serão substituídos em todos os aparelhos.<br><br>O backup contém <b>' + n('days') + '</b> trabalhos, <b>' + n('services') + '</b> serviços, <b>' + n('expenses') + '</b> contas, <b>' + n('incomes') + '</b> entradas e <b>' + (p.outflows && typeof p.outflows === 'object' ? Object.keys(p.outflows).length : 0) + '</b> saídas.',
+        message: 'Os dados atuais serão substituídos em todos os aparelhos.<br><br>O backup contém <b>' + n('days') + '</b> trabalhos, <b>' + n('services') + '</b> serviços, <b>' + n('expenses') + '</b> contas, <b>' + n('incomes') + '</b> entradas e <b>' + (p.outflows && typeof p.outflows === 'object' ? Object.keys(p.outflows).length : 0) + '</b> gastos.',
         options: [{ label: 'Substituir dados', value: true, variant: 'danger' }]
       });
       if (!ok) return;
@@ -3233,7 +3369,8 @@
        ===================================================================== */
     async function pageAction() {
       if (state.tab === 'agenda') { openWorkForm({ date: defaultDateInMonth() }); return; }
-      if (state.tab === 'fin') {
+      if (state.tab === 'gastos') { openOutflowForm(); return; }
+      if (state.tab === 'inicio') {
         const v = await ask({
           title: 'Novo lançamento',
           message: 'O que você quer adicionar em ' + monthLabel(state.month) + '?',
@@ -3241,7 +3378,7 @@
             { label: 'Trabalho', value: 'work', variant: 'ghost' },
             { label: 'Conta fixa', value: 'exp', variant: 'ghost' },
             { label: 'Entrada', value: 'inc', variant: 'ghost' },
-            { label: 'Saída', value: 'out' }
+            { label: 'Gasto', value: 'out' }
           ]
         });
         if (v === 'out') openOutflowForm();
@@ -3294,6 +3431,12 @@
             break;
           }
           case 'fin-filter': state.filterFin = el.dataset.v; renderFin(); break;
+          case 'out-who': state.outWho = el.dataset.v; renderFin(); break;
+          case 'open-fold': {
+            const f = document.getElementById(el.dataset.fold);
+            if (f) { f.open = true; setTimeout(() => f.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); }
+            break;
+          }
           case 'mark-all-paid': markAllPaid(); break;
           case 'sign-in': signInGoogle(); break;
           case 'siri-gen': siriGenerate(); break;
@@ -3466,6 +3609,7 @@
       applyTheme(state.theme);
       $$('[data-icon]').forEach(el => { el.outerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 16); });
       bindEvents();
+      try { if (window.matchMedia('(min-width: 921px)').matches) { const fc = $('#fold-cats'); if (fc) fc.open = true; } } catch (e) {}
       renderAll();
       renderAccount();
       // Aparelho sem conta lembrada: tela de login até o Google confirmar
